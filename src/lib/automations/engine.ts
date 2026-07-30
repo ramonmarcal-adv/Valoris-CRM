@@ -17,6 +17,7 @@ import type {
   WaitStepConfig,
   CreateDealStepConfig,
   AssignConversationStepConfig,
+  CreateReminderStepConfig,
 } from '@/types'
 import { supabaseAdmin } from './admin-client'
 import { addContactTagIfAbsent } from '@/lib/contacts/tag-write'
@@ -617,6 +618,43 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
         .eq('account_id', args.automation.account_id)
         .eq('contact_id', args.contactId)
       return 'conversation closed'
+    }
+
+    case 'create_reminder': {
+      const cfg = step.step_config as CreateReminderStepConfig
+      if (!args.contactId) throw new Error('create_reminder needs a contact')
+
+      const title = interpolate(cfg.title, args)
+      const dueAt = new Date(
+        Date.now() + waitMs({ amount: cfg.due_in_amount, unit: cfg.due_in_unit }),
+      ).toISOString()
+
+      let assignedTo: string | null = null
+      if (cfg.assign_to === 'author') {
+        assignedTo = args.automation.user_id
+      } else if (cfg.assign_to === 'specific') {
+        assignedTo = cfg.assigned_to_user_id ?? null
+      } else if (cfg.assign_to === 'assigned_agent') {
+        const { data: conv } = await db
+          .from('conversations')
+          .select('assigned_agent_id')
+          .eq('account_id', args.automation.account_id)
+          .eq('contact_id', args.contactId)
+          .maybeSingle()
+        assignedTo = (conv?.assigned_agent_id as string | null) ?? null
+      }
+
+      await db.from('contact_reminders').insert({
+        account_id: args.automation.account_id,
+        contact_id: args.contactId,
+        conversation_id: args.context.conversation_id ?? null,
+        created_by_user_id: args.automation.user_id,
+        assigned_to_user_id: assignedTo,
+        title,
+        due_at: dueAt,
+        source: 'automated',
+      })
+      return `reminder created: ${title}`
     }
 
     default:

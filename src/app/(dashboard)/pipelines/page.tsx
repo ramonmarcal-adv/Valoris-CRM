@@ -30,6 +30,7 @@ import { useCan } from "@/hooks/use-can";
 import { useAuth } from "@/hooks/use-auth";
 import { GatedButton } from "@/components/ui/gated-button";
 import { useTranslations } from "next-intl";
+import { moveDealToStage } from "@/lib/deals/move-deal";
 
 // Pipeline creation is admin-class (settings-tier write under
 // the new RLS); deal creation is operational and only requires
@@ -220,10 +221,7 @@ export default function PipelinesPage() {
       setDeals((prev) =>
         prev.map((d) => (d.id === dealId ? { ...d, stage_id: newStageId } : d)),
       );
-      const { error } = await supabase
-        .from("deals")
-        .update({ stage_id: newStageId })
-        .eq("id", dealId);
+      const { error } = await moveDealToStage(supabase, dealId, newStageId);
       if (error) {
         toast.error(t("toastFailedMoveDeal"));
         refreshDeals();

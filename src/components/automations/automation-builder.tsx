@@ -33,6 +33,7 @@ import {
   ArrowUp,
   MousePointerClick,
   List,
+  BellRing,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -111,6 +112,7 @@ const STEP_META: Record<AutomationStepType, StepMeta> = {
   condition: { label: "condition", icon: GitBranch, border: "border-l-amber-500" },
   send_webhook: { label: "send_webhook", icon: Webhook, border: "border-l-primary" },
   close_conversation: { label: "close_conversation", icon: CircleSlash, border: "border-l-primary" },
+  create_reminder: { label: "create_reminder", icon: BellRing, border: "border-l-primary" },
 }
 
 const ADDABLE_STEPS: AutomationStepType[] = [
@@ -127,6 +129,7 @@ const ADDABLE_STEPS: AutomationStepType[] = [
   "condition",
   "send_webhook",
   "close_conversation",
+  "create_reminder",
 ]
 
 const TRIGGER_OPTIONS: { value: AutomationTriggerType }[] = [
@@ -188,6 +191,8 @@ function blankConfig(type: AutomationStepType): Record<string, unknown> {
       return { url: "", headers: {}, body_template: "" }
     case "close_conversation":
       return {}
+    case "create_reminder":
+      return { title: "", due_in_amount: 1, due_in_unit: "hours", assign_to: "author" }
     default:
       return {}
   }
@@ -1486,6 +1491,60 @@ function StepEditor({
           {t("config.closeConversationHint", { defaultValue: "Sets the conversation status to \"closed\". No configuration needed." })}
         </p>
       )
+    case "create_reminder":
+      return (
+        <>
+          <FieldBlock label={t("config.titleLabel")}>
+            <Input
+              value={(cfg.title as string) ?? ""}
+              onChange={(e) => set({ title: e.target.value })}
+              className="bg-muted text-foreground"
+            />
+          </FieldBlock>
+          <div className="grid grid-cols-2 gap-2">
+            <FieldBlock label={t("config.dueInAmountLabel")}>
+              <Input
+                type="number"
+                min={1}
+                value={(cfg.due_in_amount as number) ?? 1}
+                onChange={(e) => set({ due_in_amount: Math.max(1, Number(e.target.value)) })}
+                className="bg-muted text-foreground"
+              />
+            </FieldBlock>
+            <FieldBlock label={t("config.unitLabel")}>
+              <select
+                value={(cfg.due_in_unit as string) ?? "hours"}
+                onChange={(e) => set({ due_in_unit: e.target.value })}
+                className="w-full rounded-md border border-border bg-muted px-2 py-1.5 text-sm text-foreground"
+              >
+                <option value="minutes">{t("config.units.minutes")}</option>
+                <option value="hours">{t("config.units.hours")}</option>
+                <option value="days">{t("config.units.days")}</option>
+              </select>
+            </FieldBlock>
+          </div>
+          <FieldBlock label={t("config.assignToLabel")}>
+            <select
+              value={(cfg.assign_to as string) ?? "author"}
+              onChange={(e) => set({ assign_to: e.target.value })}
+              className="w-full rounded-md border border-border bg-muted px-2 py-1.5 text-sm text-foreground"
+            >
+              <option value="author">{t("config.assignToOptions.author")}</option>
+              <option value="assigned_agent">{t("config.assignToOptions.assigned_agent")}</option>
+              <option value="specific">{t("config.assignToOptions.specific")}</option>
+            </select>
+          </FieldBlock>
+          {cfg.assign_to === "specific" && (
+            <FieldBlock label={t("config.agentLabel")}>
+              <AgentSelect
+                value={(cfg.assigned_to_user_id as string) ?? ""}
+                onChange={(v) => set({ assigned_to_user_id: v })}
+                t={t}
+              />
+            </FieldBlock>
+          )}
+        </>
+      )
     default:
       return null
   }
@@ -1521,6 +1580,8 @@ function previewFor(step: BuilderStep): string {
       return `when ${step.step_config.subject ?? "?"}`
     case "send_webhook":
       return (step.step_config.url as string) || "no url"
+    case "create_reminder":
+      return (step.step_config.title as string) || "no title yet"
     default:
       return ""
   }

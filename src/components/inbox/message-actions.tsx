@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { CornerUpLeft, Copy, SmilePlus } from "lucide-react";
+import { CornerUpLeft, Copy, SmilePlus, Star } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
@@ -20,6 +20,8 @@ interface MessageActionsProps {
   message: Message;
   onReply: () => void;
   onReact: (emoji: string) => void;
+  onToggleFavorite: () => void;
+  isFavorited: boolean;
   children: ReactNode;
 }
 
@@ -32,6 +34,8 @@ export function MessageActions({
   message,
   onReply,
   onReact,
+  onToggleFavorite,
+  isFavorited,
   children,
 }: MessageActionsProps) {
   const t = useTranslations("Inbox.actions");
@@ -73,6 +77,11 @@ export function MessageActions({
 
   const handleReply = () => {
     onReply();
+    setTouchOpen(false);
+  };
+
+  const handleToggleFavorite = () => {
+    onToggleFavorite();
     setTouchOpen(false);
   };
 
@@ -135,6 +144,17 @@ export function MessageActions({
           aria-label={t("reply")}
         >
           <CornerUpLeft className="h-3.5 w-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={handleToggleFavorite}
+          className={cn(
+            "flex h-5 w-5 items-center justify-center rounded-full hover:bg-muted",
+            isFavorited ? "text-amber-400" : "text-popover-foreground hover:text-foreground",
+          )}
+          aria-label={isFavorited ? t("unfavorite") : t("favorite")}
+        >
+          <Star className={cn("h-3.5 w-3.5", isFavorited && "fill-current")} />
         </button>
         <button
           type="button"

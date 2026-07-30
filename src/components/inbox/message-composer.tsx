@@ -22,6 +22,7 @@ import {
   Plus,
   MessageSquareDashed,
   Zap,
+  Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GatedButton } from "@/components/ui/gated-button";
@@ -38,6 +39,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Input } from "@/components/ui/input";
 import { useCan } from "@/hooks/use-can";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -118,6 +121,11 @@ interface MessageComposerProps {
   onOpenTemplates: () => void;
   replyTo?: ReplyDraft | null;
   onClearReply?: () => void;
+  /** "Mensagens agendadas" (Área D) — schedules the current text draft
+   *  instead of sending immediately. Optional so existing callers that
+   *  haven't wired it up yet still compile; the clock button only
+   *  renders when this is provided. */
+  onSchedule?: (text: string, scheduledAtIso: string, replyToId?: string) => void;
 }
 
 function formatDuration(seconds: number): string {
@@ -140,6 +148,7 @@ export function MessageComposer({
   onOpenTemplates,
   replyTo,
   onClearReply,
+  onSchedule,
 }: MessageComposerProps) {
   const t = useTranslations("Inbox.composer");
 
@@ -147,6 +156,10 @@ export function MessageComposer({
   const [sending, setSending] = useState(false);
   const [drafting, setDrafting] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // "Mensagens agendadas" (Área D) — schedule popover state.
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [scheduledAt, setScheduledAt] = useState("");
 
   // Interactive-message builder dialog + quick-reply picker.
   const [interactiveOpen, setInteractiveOpen] = useState(false);
@@ -235,6 +248,18 @@ export function MessageComposer({
       setSending(false);
     }
   }, [text, sending, sessionExpired, onSend, replyTo?.id]);
+
+  const handleSchedule = useCallback(() => {
+    const trimmed = text.trim();
+    if (!trimmed || !scheduledAt || !onSchedule) return;
+    onSchedule(trimmed, new Date(scheduledAt).toISOString(), replyTo?.id);
+    setText("");
+    setScheduledAt("");
+    setScheduleOpen(false);
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+    }
+  }, [text, scheduledAt, onSchedule, replyTo?.id]);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -749,6 +774,36 @@ export function MessageComposer({
               (sessionExpired || readOnly) && "cursor-not-allowed opacity-50"
             )}
           />
+
+          {onSchedule && (
+            <Popover open={scheduleOpen} onOpenChange={setScheduleOpen}>
+              <PopoverTrigger
+                disabled={!text.trim() || sessionExpired || readOnly}
+                title={readOnly ? undefined : t("scheduleSend")}
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+              >
+                <Clock className="h-4 w-4" />
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-64">
+                <p className="text-xs font-medium text-foreground">{t("scheduleSend")}</p>
+                <Input
+                  type="datetime-local"
+                  value={scheduledAt}
+                  onChange={(e) => setScheduledAt(e.target.value)}
+                  min={new Date(Date.now() + 60_000).toISOString().slice(0, 16)}
+                  className="bg-muted text-sm text-foreground"
+                />
+                <Button
+                  size="sm"
+                  disabled={!scheduledAt}
+                  onClick={handleSchedule}
+                  className="bg-primary hover:bg-primary/90"
+                >
+                  {t("scheduleConfirm")}
+                </Button>
+              </PopoverContent>
+            </Popover>
+          )}
 
           <GatedButton
             size="sm"

@@ -3,47 +3,50 @@
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { cn } from "@/lib/utils";
-import type { Contact, Deal, ContactNote, Tag } from "@/types";
-import {
-  Phone,
-  Mail,
-  Copy,
-  Check,
-  User,
-  Tag as TagIcon,
-  DollarSign,
-  StickyNote,
-  Plus,
-} from "lucide-react";
+import type { Contact, Conversation, Deal, ContactNote } from "@/types";
+import { Phone, Mail, Copy, Check, DollarSign, StickyNote, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { format } from "date-fns";
 import { useTranslations } from "next-intl";
+import { useDateFnsLocale } from "@/lib/date-locale";
+import { CommunicationSection } from "./sidebar/communication-section";
+import { ManagementSection } from "./sidebar/management-section";
+import { TagsSection } from "./sidebar/tags-section";
+import { FaqSection } from "./sidebar/faq-section";
+import { ActionsSection } from "./sidebar/actions-section";
+import { MediaSection } from "./sidebar/media-section";
 
 interface ContactSidebarProps {
   contact: Contact | null;
+  conversation: Conversation | null;
+  onConversationDeleted: (conversationId: string) => void;
 }
 
-export function ContactSidebar({ contact }: ContactSidebarProps) {
+function Divider() {
+  return <div className="my-4 border-t border-border" />;
+}
+
+export function ContactSidebar({ contact, conversation, onConversationDeleted }: ContactSidebarProps) {
   const tSidebar = useTranslations("Inbox.sidebar");
   const tThread = useTranslations("Inbox.messageThread");
+  const dateLocale = useDateFnsLocale();
 
   const { accountId } = useAuth();
   const [copied, setCopied] = useState(false);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [notes, setNotes] = useState<ContactNote[]>([]);
-  const [tags, setTags] = useState<(Tag & { contact_tag_id: string })[]>([]);
   const [newNote, setNewNote] = useState("");
   const [addingNote, setAddingNote] = useState(false);
+  const [tagIds, setTagIds] = useState<string[]>([]);
 
   const fetchContactData = useCallback(async () => {
     if (!contact) return;
 
     const supabase = createClient();
 
-    // Fetch deals, notes, and tags in parallel
-    const [dealsRes, notesRes, tagsRes] = await Promise.all([
+    const [dealsRes, notesRes] = await Promise.all([
       supabase
         .from("deals")
         .select("*, stage:pipeline_stages(*)")
@@ -53,28 +56,14 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
         .from("contact_notes")
         .select("*")
         .eq("contact_id", contact.id)
+        .eq("is_internal", false)
         .order("created_at", { ascending: false }),
-      supabase
-        .from("contact_tags")
-        .select("id, tag_id, tags(*)")
-        .eq("contact_id", contact.id),
     ]);
 
     if (dealsRes.data) setDeals(dealsRes.data);
     if (notesRes.data) setNotes(notesRes.data);
-    if (tagsRes.data) {
-      const mapped = tagsRes.data
-        .filter((ct: Record<string, unknown>) => ct.tags)
-        .map((ct: Record<string, unknown>) => ({
-          ...(ct.tags as Tag),
-          contact_tag_id: ct.id as string,
-        }));
-      setTags(mapped);
-    }
   }, [contact]);
 
-  // Load on contact change. setContactData/setTags run inside async
-  // Supabase callbacks, not synchronously in the effect body.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchContactData();
@@ -85,9 +74,6 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
     await navigator.clipboard.writeText(contact.phone);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-    // Dep is the whole `contact` object (not `contact?.phone`) so the
-    // React Compiler's inference agrees with the manual dep list —
-    // fixes the `preserve-manual-memoization` lint error.
   }, [contact]);
 
   const handleAddNote = useCallback(async () => {
@@ -108,6 +94,7 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
         account_id: accountId,
         user_id: user?.id,
         note_text: newNote.trim(),
+        is_internal: false,
       })
       .select()
       .single();
@@ -131,8 +118,8 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
   const initials = displayName.charAt(0).toUpperCase();
 
   return (
-    <div className="flex h-full w-70 flex-col border-l border-border bg-card">
-      <ScrollArea className="flex-1">
+    <div className="flex h-full min-h-0 w-70 flex-col border-l border-border bg-card">
+      <ScrollArea className="min-h-0 flex-1">
         <div className="p-4">
           {/* Contact Info */}
           <div className="flex flex-col items-center text-center">
@@ -178,124 +165,134 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
             )}
           </div>
 
-          {/* Divider */}
-          <div className="my-4 border-t border-border" />
+          <Divider />
+
+          {conversation && (
+            <>
+              <CommunicationSection contact={contact} conversation={conversation} />
+              <Divider />
+              <ManagementSection contact={contact} conversation={conversation} />
+              <Divider />
+            </>
+          )}
 
           {/* Tags */}
-          <div>
-            <div className="flex items-center gap-2 px-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              <TagIcon className="h-3 w-3" />
-              {tSidebar("tags")}
-            </div>
-            <div className="mt-2 flex flex-wrap gap-1">
-              {tags.length === 0 ? (
-                <p className="px-1 text-xs text-muted-foreground">{tSidebar("noTags")}</p>
-              ) : (
-                tags.map((tag) => (
-                  <span
-                    key={tag.contact_tag_id}
-                    className="rounded-full px-2 py-0.5 text-[10px] font-medium"
-                    style={{
-                      backgroundColor: `${tag.color}20`,
-                      color: tag.color,
-                    }}
-                  >
-                    {tag.name}
-                  </span>
-                ))
-              )}
-            </div>
-          </div>
+          <TagsSection contact={contact} onTagsLoaded={setTagIds} />
 
-          {/* Divider */}
-          <div className="my-4 border-t border-border" />
+          <Divider />
 
           {/* Active Deals */}
-          <div>
-            <div className="flex items-center gap-2 px-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              <DollarSign className="h-3 w-3" />
-              {tSidebar("deals")}
-            </div>
-            <div className="mt-2 space-y-2">
-              {deals.length === 0 ? (
-                <p className="px-1 text-xs text-muted-foreground">{tSidebar("noDeals")}</p>
-              ) : (
-                deals.map((deal) => (
-                  <div
-                    key={deal.id}
-                    className="rounded-lg bg-muted px-3 py-2"
-                  >
-                    <p className="text-sm font-medium text-foreground">
-                      {deal.title}
-                    </p>
-                    <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
-                      <span>
-                        {deal.currency ?? "$"}
-                        {deal.value.toLocaleString()}
-                      </span>
-                      {deal.stage && (
-                        <span
-                          className="rounded-full px-1.5 py-0.5 text-[10px]"
-                          style={{
-                            backgroundColor: `${deal.stage.color}20`,
-                            color: deal.stage.color,
-                          }}
-                        >
-                          {deal.stage.name}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
+          <Accordion defaultValue={["deals"]}>
+            <AccordionItem value="deals" className="border-none">
+              <AccordionTrigger className="px-1 py-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground hover:text-muted-foreground hover:no-underline">
+                <span className="flex items-center gap-2">
+                  <DollarSign className="h-3 w-3" />
+                  {tSidebar("deals")}
+                </span>
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="mt-2 space-y-2">
+                  {deals.length === 0 ? (
+                    <p className="px-1 text-xs text-muted-foreground">{tSidebar("noDeals")}</p>
+                  ) : (
+                    deals.map((deal) => (
+                      <div
+                        key={deal.id}
+                        className="rounded-lg bg-muted px-3 py-2"
+                      >
+                        <p className="text-sm font-medium text-foreground">
+                          {deal.title}
+                        </p>
+                        <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
+                          <span>
+                            {deal.currency ?? "$"}
+                            {deal.value.toLocaleString()}
+                          </span>
+                          {deal.stage && (
+                            <span
+                              className="rounded-full px-1.5 py-0.5 text-[10px]"
+                              style={{
+                                backgroundColor: `${deal.stage.color}20`,
+                                color: deal.stage.color,
+                              }}
+                            >
+                              {deal.stage.name}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
 
-          {/* Divider */}
-          <div className="my-4 border-t border-border" />
+          <Divider />
 
           {/* Notes */}
-          <div>
-            <div className="flex items-center gap-2 px-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              <StickyNote className="h-3 w-3" />
-              {tSidebar("notes")}
-            </div>
-            <div className="mt-2">
-              <div className="flex gap-2">
-                <textarea
-                  value={newNote}
-                  onChange={(e) => setNewNote(e.target.value)}
-                  placeholder={tSidebar("addNotePlaceholder")}
-                  rows={2}
-                  className="flex-1 resize-none rounded-lg border border-border bg-muted px-3 py-2 text-xs text-foreground placeholder-muted-foreground outline-none focus:border-primary/50"
-                />
-                <Button
-                  size="sm"
-                  className="h-auto bg-primary px-2 hover:bg-primary/90"
-                  onClick={handleAddNote}
-                  disabled={!newNote.trim() || addingNote}
-                >
-                  <Plus className="h-3 w-3" />
-                </Button>
-              </div>
-
-              <div className="mt-2 space-y-2">
-                {notes.map((note) => (
-                  <div
-                    key={note.id}
-                    className="rounded-lg bg-muted px-3 py-2"
-                  >
-                    <p className="whitespace-pre-wrap text-xs text-muted-foreground">
-                      {note.note_text}
-                    </p>
-                    <p className="mt-1 text-[10px] text-muted-foreground">
-                      {format(new Date(note.created_at), "MMM d, yyyy HH:mm")}
-                    </p>
+          <Accordion defaultValue={["notes"]}>
+            <AccordionItem value="notes" className="border-none">
+              <AccordionTrigger className="px-1 py-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground hover:text-muted-foreground hover:no-underline">
+                <span className="flex items-center gap-2">
+                  <StickyNote className="h-3 w-3" />
+                  {tSidebar("notes")}
+                </span>
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="mt-2">
+                  <div className="flex gap-2">
+                    <textarea
+                      value={newNote}
+                      onChange={(e) => setNewNote(e.target.value)}
+                      placeholder={tSidebar("addNotePlaceholder")}
+                      rows={2}
+                      className="flex-1 resize-none rounded-lg border border-border bg-muted px-3 py-2 text-xs text-foreground placeholder-muted-foreground outline-none focus:border-primary/50"
+                    />
+                    <Button
+                      size="sm"
+                      className="h-auto bg-primary px-2 hover:bg-primary/90"
+                      onClick={handleAddNote}
+                      disabled={!newNote.trim() || addingNote}
+                    >
+                      <Plus className="h-3 w-3" />
+                    </Button>
                   </div>
-                ))}
-              </div>
-            </div>
-          </div>
+
+                  <div className="mt-2 space-y-2">
+                    {notes.map((note) => (
+                      <div
+                        key={note.id}
+                        className="rounded-lg bg-muted px-3 py-2"
+                      >
+                        <p className="whitespace-pre-wrap text-xs text-muted-foreground">
+                          {note.note_text}
+                        </p>
+                        <p className="mt-1 text-[10px] text-muted-foreground">
+                          {format(new Date(note.created_at), "MMM d, yyyy HH:mm", { locale: dateLocale })}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+
+          {conversation && (
+            <>
+              <Divider />
+              <FaqSection tagIds={tagIds} />
+              <Divider />
+              <ActionsSection
+                contact={contact}
+                conversation={conversation}
+                onConversationDeleted={onConversationDeleted}
+              />
+              <Divider />
+              <MediaSection conversation={conversation} />
+            </>
+          )}
         </div>
       </ScrollArea>
     </div>

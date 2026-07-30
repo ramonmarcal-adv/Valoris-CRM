@@ -69,3 +69,27 @@ export function matchesContactFilters(
 
   return true;
 }
+
+export type ReminderPresenceFilter = "all" | "any" | "manual" | "automated";
+
+/**
+ * Whether a conversation passes the "Lembretes e follow-ups" / "Só
+ * lembretes" / "Só follow-ups automáticos" Inbox filters. Client-side
+ * over a one-shot `contact_reminders` fetch (same "load once, filter
+ * client-side" shape as {@link matchesContactFilters}'s tags) rather than
+ * a per-click server round-trip — reminder volume per account is small
+ * and agent-paced, so this stays cheap without a new query surface.
+ */
+export function matchesReminderFilter(
+  conversation: Conversation,
+  filter: ReminderPresenceFilter,
+  manualReminderConvIds: Set<string>,
+  automatedReminderConvIds: Set<string>,
+): boolean {
+  if (filter === "any") {
+    return manualReminderConvIds.has(conversation.id) || automatedReminderConvIds.has(conversation.id);
+  }
+  if (filter === "manual") return manualReminderConvIds.has(conversation.id);
+  if (filter === "automated") return automatedReminderConvIds.has(conversation.id);
+  return true;
+}

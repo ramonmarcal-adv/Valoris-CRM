@@ -2,25 +2,33 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
+import { toast } from "sonner";
 import {
   CONVERSATION_SELECT,
   matchesContactFilters,
+  matchesReminderFilter,
   normalizeConversations,
 } from "@/lib/inbox/conversations";
+import { releaseMyLeads, redistributeQueue } from "@/lib/inbox/bulk-actions";
 import { cn } from "@/lib/utils";
-import type { Conversation, ConversationStatus, Tag } from "@/types";
-import { Search, ChevronDown, X } from "lucide-react";
+import type { Conversation, ConversationStatus, Profile, Tag } from "@/types";
+import { Search, ChevronDown, X, Pin, Inbox as InboxIcon, Shuffle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useTranslations } from "next-intl";
+import { useDateFnsLocale } from "@/lib/date-locale";
 import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { ConversationContextMenu } from "./conversation-context-menu";
+import { ScheduledMessagesPanel } from "./scheduled-messages-panel";
 
 interface ConversationListProps {
   activeConversationId: string | null;
@@ -34,9 +42,14 @@ interface ConversationListProps {
    * or the tab was throttled. Optional so existing callers keep working.
    */
   resyncToken?: number;
+  /** Account members for the right-click menu's "Atribuir agente" submenu. */
+  profiles: Profile[];
+  /** Applies an optimistic patch from the context menu (pin/favorite/
+   *  mark-unread/archive/assign) to the parent's conversation state. */
+  onConversationChanged: (conversationId: string, patch: Partial<Conversation>) => void;
 }
 
-const STATUS_COLORS: Record<ConversationStatus, string> = {
+export const STATUS_COLORS: Record<ConversationStatus, string> = {
   open: "bg-primary",
   pending: "bg-amber-500",
   closed: "bg-muted-foreground",
@@ -44,7 +57,19 @@ const STATUS_COLORS: Record<ConversationStatus, string> = {
 
 
 
-type InboxFilter = ConversationStatus | "all" | "unread";
+type InboxFilter =
+  | ConversationStatus
+  | "all"
+  | "unread"
+  | "favorites"
+  | "groups"
+  | "reminders"
+  | "manualReminders"
+  | "automatedReminders";
+
+/** Independent from `InboxFilter` — combines by AND, same as the existing
+ *  tag/company filters, so e.g. "Grupos" + "Minhas" can apply together. */
+type AssignmentFilter = "all" | "mine" | "unassigned";
 
 export function ConversationList({
   activeConversationId,
@@ -52,20 +77,31 @@ export function ConversationList({
   conversations,
   onConversationsLoaded,
   resyncToken = 0,
+  profiles,
+  onConversationChanged,
 }: ConversationListProps) {
   const t = useTranslations("Inbox.conversationList");
   
   const FILTER_OPTIONS: { label: string; value: InboxFilter }[] = useMemo(() => [
     { label: t("filterAll"), value: "all" },
     { label: t("filterUnread"), value: "unread" },
+    { label: t("filterFavorites"), value: "favorites" },
+    { label: t("filterGroups"), value: "groups" },
+    { label: t("filterReminders"), value: "reminders" },
+    { label: t("filterManualReminders"), value: "manualReminders" },
+    { label: t("filterAutomatedReminders"), value: "automatedReminders" },
     { label: t("filterOpen"), value: "open" },
     { label: t("filterPending"), value: "pending" },
     { label: t("filterClosed"), value: "closed" },
   ], [t]);
 
+  const { user, accountId, canSendMessages, canManageMembers } = useAuth();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<InboxFilter>("all");
+  const [assignmentFilter, setAssignmentFilter] = useState<AssignmentFilter>("all");
   const [loading, setLoading] = useState(true);
+  const [releasingLeads, setReleasingLeads] = useState(false);
+  const [redistributing, setRedistributing] = useState(false);
   // Contact-based filters (issue #272). Tags use OR logic (a conversation
   // matches if its contact carries any selected tag), consistent with
   // Broadcast audience filtering. Company is an exact match on the field.
@@ -90,32 +126,34 @@ export function ConversationList({
     onConversationsLoadedRef.current = onConversationsLoaded;
   });
 
-  useEffect(() => {
+  const refetchConversations = useCallback(async () => {
     const supabase = createClient();
+    const { data, error } = await supabase
+      .from("conversations")
+      .select(CONVERSATION_SELECT)
+      .eq("is_archived", false)
+      .order("is_pinned", { ascending: false })
+      .order("last_message_at", { ascending: false });
+
+    if (error) {
+      console.error("Failed to fetch conversations:", {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+      });
+      return;
+    }
+
+    onConversationsLoadedRef.current(normalizeConversations(data ?? []));
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
 
     (async () => {
-      const { data, error } = await supabase
-        .from("conversations")
-        .select(CONVERSATION_SELECT)
-        .order("last_message_at", { ascending: false });
-
-      if (cancelled) return;
-
-      if (error) {
-        // Supabase errors have non-enumerable properties — log fields explicitly
-        console.error("Failed to fetch conversations:", {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code,
-        });
-        setLoading(false);
-        return;
-      }
-
-      onConversationsLoadedRef.current(normalizeConversations(data ?? []));
-      setLoading(false);
+      await refetchConversations();
+      if (!cancelled) setLoading(false);
     })();
 
     return () => {
@@ -124,7 +162,7 @@ export function ConversationList({
     // `resyncToken` is included so the parent can force a refetch when
     // the realtime channel reconnects or the tab regains focus — catches
     // up on any events sent while the WS was disconnected or throttled.
-  }, [resyncToken]);
+  }, [resyncToken, refetchConversations]);
 
   // Tag definitions for the filter picker — loaded once so labels/colours
   // stay stable regardless of which conversations happen to be loaded.
@@ -139,6 +177,37 @@ export function ConversationList({
       cancelled = true;
     };
   }, []);
+
+  // Open reminders per conversation, for the "Lembretes e follow-ups" /
+  // "Só lembretes" / "Só follow-ups automáticos" filters — one-shot fetch,
+  // client-side filtering (same shape as the tags fetch above). Not
+  // realtime-synced: a reminder created by an automation while this tab is
+  // open only shows up here after the next mount/resync, same tradeoff the
+  // tags fetch already has.
+  const [manualReminderConvIds, setManualReminderConvIds] = useState<Set<string>>(new Set());
+  const [automatedReminderConvIds, setAutomatedReminderConvIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    const supabase = createClient();
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("contact_reminders")
+        .select("conversation_id, source")
+        .is("completed_at", null)
+        .not("conversation_id", "is", null);
+      if (cancelled || !data) return;
+      const manual = new Set<string>();
+      const automated = new Set<string>();
+      for (const row of data as { conversation_id: string; source: string }[]) {
+        (row.source === "automated" ? automated : manual).add(row.conversation_id);
+      }
+      setManualReminderConvIds(manual);
+      setAutomatedReminderConvIds(automated);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [resyncToken]);
 
   // Company options are derived from the loaded conversations — there's no
   // separate companies table, and only companies with a live conversation
@@ -159,12 +228,33 @@ export function ConversationList({
   }, [tags]);
 
   const filtered = useMemo(() => {
-    let result = conversations;
+    // Archived conversations are excluded from the default fetch, but a
+    // conversation archived via the context menu while already loaded
+    // client-side needs to drop out here too (the parent's `conversations`
+    // array isn't re-fetched on every patch).
+    let result = conversations.filter((c) => !c.is_archived);
 
     if (filter === "unread") {
       result = result.filter((c) => c.unread_count > 0);
+    } else if (filter === "favorites") {
+      result = result.filter((c) => c.is_favorite);
+    } else if (filter === "groups") {
+      result = result.filter((c) => c.is_group);
+    } else if (filter === "reminders" || filter === "manualReminders" || filter === "automatedReminders") {
+      const reminderFilter = filter === "reminders" ? "any" : filter === "manualReminders" ? "manual" : "automated";
+      result = result.filter((c) =>
+        matchesReminderFilter(c, reminderFilter, manualReminderConvIds, automatedReminderConvIds),
+      );
     } else if (filter !== "all") {
       result = result.filter((c) => c.status === filter);
+    }
+
+    // Assignment scope — independent of the type filter above, combines
+    // by AND (e.g. "Grupos" + "Minhas" can apply together).
+    if (assignmentFilter === "mine") {
+      result = result.filter((c) => c.assigned_agent_id === user?.id);
+    } else if (assignmentFilter === "unassigned") {
+      result = result.filter((c) => !c.assigned_agent_id);
     }
 
     // Contact-based filters (tags via OR logic, exact company match).
@@ -187,8 +277,21 @@ export function ConversationList({
       });
     }
 
-    return result;
-  }, [conversations, filter, search, selectedTagIds, selectedCompany]);
+    // Pinned conversations float to the top. Array#sort is stable, so
+    // this only reorders across the pinned/unpinned boundary and leaves
+    // everything else in its existing (last-message-desc) order.
+    return [...result].sort((a, b) => Number(b.is_pinned) - Number(a.is_pinned));
+  }, [
+    conversations,
+    filter,
+    assignmentFilter,
+    user?.id,
+    search,
+    selectedTagIds,
+    selectedCompany,
+    manualReminderConvIds,
+    automatedReminderConvIds,
+  ]);
 
   const toggleTag = useCallback((id: string) => {
     setSelectedTagIds((prev) =>
@@ -219,6 +322,48 @@ export function ConversationList({
 
   const activeFilter = FILTER_OPTIONS.find((o) => o.value === filter);
 
+  const ASSIGNMENT_OPTIONS: { label: string; value: AssignmentFilter }[] = useMemo(
+    () => [
+      { label: t("assignmentAll"), value: "all" },
+      { label: t("assignmentMine"), value: "mine" },
+      { label: t("assignmentUnassigned"), value: "unassigned" },
+    ],
+    [t],
+  );
+  const activeAssignmentFilter = ASSIGNMENT_OPTIONS.find((o) => o.value === assignmentFilter);
+  const unassignedCount = useMemo(
+    () => conversations.filter((c) => !c.is_archived && !c.assigned_agent_id).length,
+    [conversations],
+  );
+
+  const handleReleaseMyLeads = useCallback(async () => {
+    if (!accountId || !user?.id || releasingLeads) return;
+    setReleasingLeads(true);
+    const supabase = createClient();
+    const { data, error } = await releaseMyLeads(supabase, accountId, user.id);
+    setReleasingLeads(false);
+    if (error) {
+      toast.error(t("toastReleaseFailed"));
+      return;
+    }
+    toast.success(t("toastReleasedCount", { count: data?.length ?? 0 }));
+    await refetchConversations();
+  }, [accountId, user, releasingLeads, t, refetchConversations]);
+
+  const handleRedistributeQueue = useCallback(async () => {
+    if (redistributing) return;
+    setRedistributing(true);
+    const supabase = createClient();
+    const { data, error } = await redistributeQueue(supabase);
+    setRedistributing(false);
+    if (error) {
+      toast.error(t("toastRedistributeFailed"));
+      return;
+    }
+    toast.success(t("toastRedistributedCount", { count: (data as number) ?? 0 }));
+    await refetchConversations();
+  }, [redistributing, t, refetchConversations]);
+
   return (
     // w-full on mobile so the list occupies the whole viewport when it's
     // the single pane showing; fixed 320px on desktop where it shares the
@@ -226,14 +371,17 @@ export function ConversationList({
     <div className="flex h-full w-full flex-col border-r border-border bg-card lg:w-80">
       {/* Search + Filter */}
       <div className="space-y-2 border-b border-border p-3">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={handleSearchChange}
-            placeholder={t("searchPlaceholder")}
-            className="border-border bg-muted pl-9 text-sm text-foreground placeholder-muted-foreground focus:border-primary/50"
-          />
+        <div className="flex items-center gap-1.5">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={handleSearchChange}
+              placeholder={t("searchPlaceholder")}
+              className="border-border bg-muted pl-9 text-sm text-foreground placeholder-muted-foreground focus:border-primary/50"
+            />
+          </div>
+          <ScheduledMessagesPanel />
         </div>
 
         <div className="flex flex-wrap items-center gap-1">
@@ -260,6 +408,57 @@ export function ConversationList({
                   {opt.label}
                 </DropdownMenuItem>
               ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Assignment scope: Todas/Minhas/Fila + bulk actions
+              (Liberar meus leads / Redistribuir fila). */}
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              className={cn(
+                "inline-flex items-center justify-center h-7 gap-1 px-2 text-xs rounded-md hover:bg-muted",
+                assignmentFilter !== "all" ? "text-primary" : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <InboxIcon className="h-3 w-3" />
+              {activeAssignmentFilter?.label ?? t("assignmentAll")}
+              <ChevronDown className="h-3 w-3" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="border-border bg-popover">
+              {ASSIGNMENT_OPTIONS.map((opt) => (
+                <DropdownMenuItem
+                  key={opt.value}
+                  onClick={() => setAssignmentFilter(opt.value)}
+                  className={cn(
+                    "text-sm",
+                    assignmentFilter === opt.value ? "text-primary" : "text-popover-foreground",
+                  )}
+                >
+                  <span className="flex-1">{opt.label}</span>
+                  {opt.value === "unassigned" && (
+                    <span className="ml-2 rounded-full bg-muted px-1.5 text-[10px] text-muted-foreground">
+                      {unassignedCount}
+                    </span>
+                  )}
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuSeparator className="bg-border" />
+              <DropdownMenuItem
+                disabled={!canSendMessages || releasingLeads}
+                onClick={handleReleaseMyLeads}
+                className="text-sm text-popover-foreground"
+              >
+                {t("releaseMyLeads")}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={!canManageMembers || redistributing}
+                onClick={handleRedistributeQueue}
+                title={!canManageMembers ? t("redistributeQueueAdminOnly") : undefined}
+                className="text-sm text-popover-foreground"
+              >
+                <Shuffle className="h-3 w-3" />
+                {t("redistributeQueue")}
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -414,6 +613,8 @@ export function ConversationList({
                 isActive={conv.id === activeConversationId}
                 onSelect={handleSelect}
                 t={t}
+                profiles={profiles}
+                onConversationChanged={onConversationChanged}
               />
             ))}
           </div>
@@ -428,6 +629,8 @@ interface ConversationItemProps {
   isActive: boolean;
   onSelect: (conversation: Conversation) => void;
   t: ReturnType<typeof useTranslations>;
+  profiles: Profile[];
+  onConversationChanged: (conversationId: string, patch: Partial<Conversation>) => void;
 }
 
 function ConversationItem({
@@ -435,10 +638,13 @@ function ConversationItem({
   isActive,
   onSelect,
   t,
+  profiles,
+  onConversationChanged,
 }: ConversationItemProps) {
   const contact = conversation.contact;
   const displayName = contact?.name || contact?.phone || t("unknown");
   const initials = displayName.charAt(0).toUpperCase();
+  const dateLocale = useDateFnsLocale();
 
   const handleClick = useCallback(() => {
     onSelect(conversation);
@@ -447,58 +653,68 @@ function ConversationItem({
   const timeAgo = conversation.last_message_at
     ? formatDistanceToNow(new Date(conversation.last_message_at), {
         addSuffix: false,
+        locale: dateLocale,
       })
     : "";
 
   return (
-    <button
-      onClick={handleClick}
-      className={cn(
-        "flex w-full items-start gap-3 px-3 py-3 text-left transition-colors hover:bg-muted/50",
-        isActive && "border-l-2 border-primary bg-muted/70"
-      )}
+    <ConversationContextMenu
+      conversation={conversation}
+      profiles={profiles}
+      onChanged={onConversationChanged}
     >
-      {/* Avatar */}
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-foreground">
-        {contact?.avatar_url ? (
-          <img
-            src={contact.avatar_url}
-            alt={displayName}
-            className="h-10 w-10 rounded-full object-cover"
-          />
-        ) : (
-          initials
+      <button
+        onClick={handleClick}
+        className={cn(
+          "flex w-full items-start gap-3 px-3 py-3 text-left transition-colors hover:bg-muted/50",
+          isActive && "border-l-2 border-primary bg-muted/70"
         )}
-      </div>
-
-      {/* Content */}
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center justify-between gap-2">
-          <span className="truncate text-sm font-medium text-foreground">
-            {displayName}
-          </span>
-          <span className="shrink-0 text-[10px] text-muted-foreground">{timeAgo}</span>
-        </div>
-        <div className="mt-0.5 flex items-center justify-between gap-2">
-          <p className="truncate text-xs text-muted-foreground">
-            {conversation.last_message_text || t("noMessagesYet")}
-          </p>
-          <div className="flex shrink-0 items-center gap-1.5">
-            {conversation.unread_count > 0 && (
-              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
-                {conversation.unread_count}
-              </span>
-            )}
-            <span
-              className={cn(
-                "h-2 w-2 rounded-full",
-                STATUS_COLORS[conversation.status]
-              )}
-              title={conversation.status}
+      >
+        {/* Avatar */}
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-foreground">
+          {contact?.avatar_url ? (
+            <img
+              src={contact.avatar_url}
+              alt={displayName}
+              className="h-10 w-10 rounded-full object-cover"
             />
+          ) : (
+            initials
+          )}
+        </div>
+
+        {/* Content */}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            {conversation.is_pinned && (
+              <Pin className="h-3 w-3 shrink-0 text-muted-foreground" />
+            )}
+            <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+              {displayName}
+            </span>
+            <span className="shrink-0 text-[10px] text-muted-foreground">{timeAgo}</span>
+          </div>
+          <div className="mt-0.5 flex items-center justify-between gap-2">
+            <p className="truncate text-xs text-muted-foreground">
+              {conversation.last_message_text || t("noMessagesYet")}
+            </p>
+            <div className="flex shrink-0 items-center gap-1.5">
+              {conversation.unread_count > 0 && (
+                <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                  {conversation.unread_count}
+                </span>
+              )}
+              <span
+                className={cn(
+                  "h-2 w-2 rounded-full",
+                  STATUS_COLORS[conversation.status]
+                )}
+                title={conversation.status}
+              />
+            </div>
           </div>
         </div>
-      </div>
-    </button>
+      </button>
+    </ConversationContextMenu>
   );
 }

@@ -11,6 +11,7 @@ import type {
   Conversation,
   Message,
   MessageReaction,
+  MessageFavorite,
   Contact,
   ConversationStatus,
   MessageTemplate,
@@ -20,6 +21,7 @@ import type {
 import {
   MessageSquare,
   ChevronDown,
+  ChevronUp,
   UserPlus,
   Check,
   Clock,
@@ -27,9 +29,13 @@ import {
   RefreshCw,
   PanelRightOpen,
   PanelRightClose,
+  Search,
+  X,
 } from "lucide-react";
 import { format, isToday, isYesterday, differenceInHours } from "date-fns";
+import type { Locale } from "date-fns";
 import { useTranslations } from "next-intl";
+import { useDateFnsLocale } from "@/lib/date-locale";
 import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
@@ -111,11 +117,15 @@ interface MessageThreadProps {
   onToggleContactPanel?: () => void;
 }
 
-function formatDateSeparator(dateStr: string, t: ReturnType<typeof useTranslations>): string {
+function formatDateSeparator(
+  dateStr: string,
+  t: ReturnType<typeof useTranslations>,
+  locale: Locale,
+): string {
   const date = new Date(dateStr);
   if (isToday(date)) return t("today");
   if (isYesterday(date)) return t("yesterday");
-  return format(date, "MMMM d, yyyy");
+  return format(date, "MMMM d, yyyy", { locale });
 }
 
 function groupMessagesByDate(messages: Message[]) {
@@ -170,15 +180,22 @@ export function MessageThread({
 }: MessageThreadProps) {
   const t = useTranslations("Inbox.messageThread");
   const tTimer = useTranslations("Inbox.sessionTimer");
+  const dateLocale = useDateFnsLocale();
   const tQuote = useTranslations("Inbox.replyQuote");
 
-  const { user } = useAuth();
+  const { user, accountId } = useAuth();
   const { getPresence, getRow, now } = usePresence();
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [reactions, setReactions] = useState<MessageReaction[]>([]);
+  const [favorites, setFavorites] = useState<MessageFavorite[]>([]);
+  // In-thread search (Área A.4) — client-side substring match over the
+  // already-loaded `messages` array, no server round-trip.
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
   // Purely visual spin state for the manual-refresh button. The actual
   // refetch is fire-and-forget through `onRefresh` (which bumps the
   // parent's resyncToken); the 700ms spin is just feedback so the click
@@ -330,6 +347,35 @@ export function MessageThread({
         return;
       }
       setReactions((data as MessageReaction[]) ?? []);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [conversationId, resyncToken]);
+
+  // "Mensagens favoritas" — account-visible star state (migration 038).
+  // No realtime subscription for v1: refetches alongside reactions on
+  // conversation change / resync.
+  useEffect(() => {
+    if (!conversationId) {
+      setFavorites([]);
+      return;
+    }
+    const supabase = createClient();
+    let cancelled = false;
+
+    (async () => {
+      const { data, error } = await supabase
+        .from("message_favorites")
+        .select("*")
+        .eq("conversation_id", conversationId);
+      if (cancelled) return;
+      if (error) {
+        console.error("Failed to fetch message favorites:", error);
+        return;
+      }
+      setFavorites((data as MessageFavorite[]) ?? []);
     })();
 
     return () => {
@@ -500,6 +546,33 @@ export function MessageThread({
       }
     },
     [conversation, onNewMessage, onUpdateMessage]
+  );
+
+  const handleScheduleMessage = useCallback(
+    async (text: string, scheduledAtIso: string, replyToId?: string) => {
+      if (!conversation || !contact || !accountId) return;
+
+      const supabase = createClient();
+      const { error } = await supabase.from("scheduled_messages").insert({
+        account_id: accountId,
+        conversation_id: conversation.id,
+        contact_id: contact.id,
+        created_by_user_id: user?.id,
+        content_type: "text",
+        content_text: text,
+        reply_to_message_id: replyToId ?? null,
+        scheduled_at: scheduledAtIso,
+      });
+
+      if (error) {
+        console.error("Failed to schedule message:", error);
+        toast.error(t("scheduleFailed"));
+        return;
+      }
+
+      toast.success(t("scheduleSuccess"));
+    },
+    [conversation, contact, accountId, user?.id, t],
   );
 
   const handleSendMedia = useCallback(
@@ -817,6 +890,100 @@ export function MessageThread({
     [conversation, user?.id],
   );
 
+  const favoritedMessageIds = useMemo(
+    () =>
+      new Set(
+        favorites.filter((f) => f.user_id === user?.id).map((f) => f.message_id),
+      ),
+    [favorites, user?.id],
+  );
+
+  // In-thread search matches, oldest-first (same order `messages` already
+  // renders in) so prev/next navigation moves predictably through the thread.
+  const searchMatches = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return [];
+    return messages.filter((m) => m.content_text?.toLowerCase().includes(q));
+  }, [messages, searchQuery]);
+
+  // Reset to the first match whenever the query (or the match set) changes —
+  // otherwise a stale index could point past the end of a shorter new list.
+  useEffect(() => {
+    setCurrentMatchIndex(0);
+  }, [searchQuery]);
+
+  const scrollToMessage = useCallback((messageId: string) => {
+    document
+      .getElementById(`msg-${messageId}`)
+      ?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, []);
+
+  useEffect(() => {
+    const current = searchMatches[currentMatchIndex];
+    if (current) scrollToMessage(current.id);
+  }, [currentMatchIndex, searchMatches, scrollToMessage]);
+
+  const handleNextMatch = useCallback(() => {
+    if (searchMatches.length === 0) return;
+    setCurrentMatchIndex((i) => (i + 1) % searchMatches.length);
+  }, [searchMatches.length]);
+
+  const handlePrevMatch = useCallback(() => {
+    if (searchMatches.length === 0) return;
+    setCurrentMatchIndex((i) => (i - 1 + searchMatches.length) % searchMatches.length);
+  }, [searchMatches.length]);
+
+  const handleCloseSearch = useCallback(() => {
+    setSearchOpen(false);
+    setSearchQuery("");
+    setCurrentMatchIndex(0);
+  }, []);
+
+  const handleToggleFavorite = useCallback(
+    async (messageId: string) => {
+      if (!user?.id || !conversation || !accountId) return;
+      if (messageId.startsWith("temp-")) return;
+
+      const userId = user.id;
+      const isFavorited = favoritedMessageIds.has(messageId);
+      const snapshot = favorites;
+
+      setFavorites((prev) =>
+        isFavorited
+          ? prev.filter((f) => !(f.message_id === messageId && f.user_id === userId))
+          : [
+              ...prev,
+              {
+                id: `temp-${Date.now()}`,
+                account_id: accountId,
+                conversation_id: conversation.id,
+                message_id: messageId,
+                user_id: userId,
+                created_at: new Date().toISOString(),
+              },
+            ],
+      );
+
+      const supabase = createClient();
+      const { error } = isFavorited
+        ? await supabase
+            .from("message_favorites")
+            .delete()
+            .eq("message_id", messageId)
+            .eq("user_id", userId)
+        : await supabase
+            .from("message_favorites")
+            .insert({ account_id: accountId, conversation_id: conversation.id, message_id: messageId, user_id: userId });
+
+      if (error) {
+        console.error("Failed to toggle message favorite:", error);
+        toast.error(t("favoriteFailed"));
+        setFavorites(snapshot);
+      }
+    },
+    [conversation, user?.id, accountId, favorites, favoritedMessageIds, t],
+  );
+
   const handleAssignChange = useCallback(
     async (agentId: string | null) => {
       if (!conversation) return;
@@ -916,6 +1083,22 @@ export function MessageThread({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Search within this conversation (Área A.4) — client-side,
+              toggles an inline search bar below the header. */}
+          <button
+            type="button"
+            onClick={() => (searchOpen ? handleCloseSearch() : setSearchOpen(true))}
+            aria-label={searchOpen ? t("closeSearch") : t("searchConversation")}
+            title={searchOpen ? t("closeSearch") : t("searchConversation")}
+            aria-pressed={searchOpen}
+            className={cn(
+              "inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-muted hover:text-foreground",
+              searchOpen ? "text-primary" : "text-muted-foreground",
+            )}
+          >
+            <Search className="h-3.5 w-3.5" />
+          </button>
+
           {/* Contact-panel toggle — desktop only. The contact sidebar
               eats a chunk of horizontal width that crowds the thread on
               smaller laptops; this lets agents reclaim it when they just
@@ -1057,6 +1240,61 @@ export function MessageThread({
         </div>
       </div>
 
+      {/* In-thread search bar — only mounted while active. */}
+      {searchOpen && (
+        <div className="flex items-center gap-2 border-b border-border bg-card px-3 py-2 sm:px-4">
+          <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <input
+            autoFocus
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") handleCloseSearch();
+              if (e.key === "Enter") {
+                if (e.shiftKey) handlePrevMatch();
+                else handleNextMatch();
+              }
+            }}
+            placeholder={t("searchPlaceholder")}
+            className="flex-1 bg-transparent text-sm text-foreground placeholder-muted-foreground outline-none"
+          />
+          {searchQuery.trim() && (
+            <span className="shrink-0 text-xs text-muted-foreground">
+              {searchMatches.length === 0
+                ? t("noResults")
+                : t("matchCount", { current: currentMatchIndex + 1, total: searchMatches.length })}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={handlePrevMatch}
+            disabled={searchMatches.length === 0}
+            aria-label={t("previousMatch")}
+            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+          >
+            <ChevronUp className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={handleNextMatch}
+            disabled={searchMatches.length === 0}
+            aria-label={t("nextMatch")}
+            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+          >
+            <ChevronDown className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={handleCloseSearch}
+            aria-label={t("closeSearch")}
+            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Messages Area */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4">
         {loading ? (
@@ -1077,7 +1315,7 @@ export function MessageThread({
                 {/* Date separator */}
                 <div className="mb-4 flex items-center justify-center">
                   <span className="rounded-full bg-muted px-3 py-1 text-[10px] font-medium text-muted-foreground">
-                    {formatDateSeparator(group.date, t)}
+                    {formatDateSeparator(group.date, t, dateLocale)}
                   </span>
                 </div>
                 {/* Messages */}
@@ -1115,6 +1353,8 @@ export function MessageThread({
                         onReact={(emoji) => {
                           if (emoji) void postReaction(msg.id, emoji);
                         }}
+                        onToggleFavorite={() => void handleToggleFavorite(msg.id)}
+                        isFavorited={favoritedMessageIds.has(msg.id)}
                       >
                         <MessageBubble
                           message={msg}
@@ -1122,6 +1362,7 @@ export function MessageThread({
                           reactions={msgReactions}
                           currentUserId={user?.id}
                           onToggleReaction={handlePillToggle}
+                          highlightQuery={searchOpen ? searchQuery : undefined}
                         />
                       </MessageActions>
                     );
@@ -1157,6 +1398,7 @@ export function MessageThread({
         onSendMedia={handleSendMedia}
         onSendInteractive={handleSendInteractive}
         onOpenTemplates={handleOpenTemplates}
+        onSchedule={handleScheduleMessage}
         replyTo={replyTo}
         onClearReply={() => setReplyTo(null)}
       />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import type { Message, MessageReaction } from "@/types";
 import {
@@ -28,6 +28,30 @@ interface MessageBubbleProps {
   reactions?: MessageReaction[];
   currentUserId?: string;
   onToggleReaction?: (emoji: string) => void;
+  /** Active in-thread search term (Área A.4) — wraps matches in the
+   *  plain-text body with a <mark>-style highlight. Undefined/empty
+   *  means no search is active. */
+  highlightQuery?: string;
+}
+
+/** Splits `text` on case-insensitive occurrences of `query`, wrapping each
+ *  match in a themed <mark> so it reads as "found" without breaking the
+ *  message's own text color. Returns `text` unchanged when `query` is empty
+ *  — the common case, kept cheap since it runs per-bubble per render. */
+function highlightText(text: string, query?: string): ReactNode {
+  if (!query?.trim()) return text;
+  const escaped = query.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const parts = text.split(new RegExp(`(${escaped})`, "gi"));
+  if (parts.length === 1) return text;
+  return parts.map((part, i) =>
+    part.toLowerCase() === query.trim().toLowerCase() ? (
+      <mark key={i} className="rounded-sm bg-primary/30 text-inherit">
+        {part}
+      </mark>
+    ) : (
+      <span key={i}>{part}</span>
+    ),
+  );
 }
 
 function StatusIcon({ status }: { status: Message["status"] }) {
@@ -119,12 +143,20 @@ function MediaImage({ url, alt }: { url: string; alt: string }) {
   );
 }
 
-function MessageContent({ message, t }: { message: Message, t: ReturnType<typeof useTranslations> }) {
+function MessageContent({
+  message,
+  t,
+  highlightQuery,
+}: {
+  message: Message;
+  t: ReturnType<typeof useTranslations>;
+  highlightQuery?: string;
+}) {
   switch (message.content_type) {
     case "text":
       return (
         <p className="whitespace-pre-wrap break-words text-sm">
-          {message.content_text}
+          {highlightText(message.content_text ?? "", highlightQuery)}
         </p>
       );
 
@@ -264,6 +296,7 @@ export function MessageBubble({
   reactions,
   currentUserId,
   onToggleReaction,
+  highlightQuery,
 }: MessageBubbleProps) {
   const t = useTranslations("Inbox.bubble");
 
@@ -271,9 +304,11 @@ export function MessageBubble({
   const time = format(new Date(message.created_at), "HH:mm");
 
   // Row alignment + width cap are owned by <MessageActions> so its hover
-  // group matches the bubble's content area, not the full row.
+  // group matches the bubble's content area, not the full row. The `id`
+  // is the scroll target for in-thread search match navigation (Área A.4).
   return (
     <div
+      id={`msg-${message.id}`}
       className={cn(
         "flex flex-col",
         isAgent ? "items-end" : "items-start",
@@ -294,7 +329,7 @@ export function MessageBubble({
             onPrimary={isAgent}
           />
         )}
-        <MessageContent message={message} t={t} />
+        <MessageContent message={message} t={t} highlightQuery={highlightQuery} />
         <div
           className={cn(
             "mt-1 flex items-center gap-1",
