@@ -150,10 +150,13 @@ export async function POST() {
       )
     }
 
+    // Templates are Meta-only (no Evolution equivalent) — scoped so a
+    // sibling Evolution row (migration 048) doesn't make .single() throw.
     const { data: config, error: configError } = await supabase
       .from('whatsapp_config')
       .select('*')
       .eq('account_id', accountId)
+      .eq('api_type', 'meta_cloud')
       .single()
 
     if (configError || !config) {

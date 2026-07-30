@@ -134,10 +134,14 @@ export async function POST(request: Request) {
       )
     }
 
+    // Broadcasts are Meta-only in v1 (Evolution has no template-send
+    // equivalent) — scoped explicitly so an account with both providers
+    // configured doesn't make .single() throw on 2 rows.
     const { data: config, error: configError } = await supabase
       .from('whatsapp_config')
       .select('*')
       .eq('account_id', accountId)
+      .eq('api_type', 'meta_cloud')
       .single()
 
     if (configError || !config) {

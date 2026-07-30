@@ -111,10 +111,14 @@ export async function createBroadcast(
 
   // Config (fail fast + provides the audit trail owner already resolved
   // by the caller). Meta send needs phone_number_id + decrypted token.
+  // Broadcasts are Meta-only in v1 (Evolution has no template-send
+  // equivalent) — scoped so a sibling Evolution row (migration 048)
+  // doesn't make .single() throw.
   const { data: config, error: configError } = await db
     .from('whatsapp_config')
     .select('*')
     .eq('account_id', accountId)
+    .eq('api_type', 'meta_cloud')
     .single();
   if (configError || !config) {
     throw new BroadcastError(

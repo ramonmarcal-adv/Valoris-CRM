@@ -1,0 +1,101 @@
+# Evolution API — reference stack for a plain VPS (Docker + Docker
+# Compose only, no PaaS like Dokploy/Coolify required).
+#
+# Use this ONLY if you're self-managing (Vultr, DigitalOcean, Contabo,
+# a bare Hostinger VPS without the one-click app, etc). If you're using
+# Hostinger's "Evolution API" one-click application, it already sets
+# all of this up for you (Evolution API + Postgres + Redis, managed
+# through their Docker panel) — you don't need this file. See
+# ../../docs/DEPLOYMENT.md for the full walkthrough of both paths.
+#
+# Adds one thing the official evolution-api repo's compose file doesn't
+# include: Caddy as a reverse proxy, so the API is reachable over HTTPS
+# at a real domain. This matters because `api_url` in the CRM's
+# Evolution Settings tab is called from Vercel over the public internet
+# with the API key in a header — plaintext HTTP would send that key in
+# cleartext.
+#
+# Requires, BEFORE running `docker compose up -d`:
+#   1. A domain/subdomain (e.g. evolution.seudominio.com.br) with an A
+#      record already pointing at this VPS's public IP — Caddy requests
+#      the TLS certificate on first boot and needs that to resolve.
+#   2. `cp .env.example .env` and fill in real values (see comments in
+#      that file) — especially AUTHENTICATION_API_KEY and
+#      POSTGRES_PASSWORD, which must NOT be left as the example values.
+
+services:
+  evolution-api:
+    container_name: evolution_api
+    image: evoapicloud/evolution-api:latest
+    restart: unless-stopped
+    depends_on:
+      - redis
+      - postgres
+    env_file:
+      - .env
+    environment:
+      # Built here (not in .env) because Docker Compose only expands
+      # ${VAR} references inside `environment:` at compose-parse time —
+      # an `env_file:` value is passed to the container raw, so a
+      # ${POSTGRES_PASSWORD} placeholder left inside .env would reach
+      # Evolution API as a literal, un-substituted string.
+      - DATABASE_CONNECTION_URI=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=evolution_api
+      - SERVER_URL=https://${EVOLUTION_DOMAIN}
+    volumes:
+      - evolution_instances:/evolution/instances
+    networks:
+      - evolution-net
+    expose:
+      - "8080"
+
+  redis:
+    container_name: evolution_redis
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - evolution_redis:/data
+    networks:
+      - evolution-net
+
+  postgres:
+    container_name: evolution_postgres
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - evolution_postgres:/var/lib/postgresql/data
+    networks:
+      - evolution-net
+
+  caddy:
+    container_name: evolution_caddy
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - evolution-api
+    ports:
+      - "80:80"
+      - "443:443"
+    env_file:
+      - .env
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - evolution-net
+
+volumes:
+  evolution_instances:
+  evolution_redis:
+  evolution_postgres:
+  caddy_data:
+  caddy_config:
+
+networks:
+  evolution-net:
+    driver: bridge

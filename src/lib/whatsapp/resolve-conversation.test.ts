@@ -48,13 +48,22 @@ function makeDb(script: Script): SupabaseClient {
     eq: () => builder,
     order: () => builder,
     limit: () => {
-      // Only the conversation lookup terminates on `.limit(1)`.
+      // The conversation lookup terminates on `.limit(1)`.
       if (table === 'conversations' && mode === 'select') {
         const row = script.existingConversationByCall
           ? (script.existingConversationByCall[convLookupCalls] ?? null)
           : (script.existingConversation ?? null);
         convLookupCalls++;
         return Promise.resolve({ data: row ? [row] : [], error: null });
+      }
+      // So does the whatsapp_config existence check (an account can now
+      // have up to two rows — one per provider, migration 048 — so the
+      // real code uses `.limit(1)` instead of `.maybeSingle()`).
+      if (table === 'whatsapp_config' && mode === 'select') {
+        return Promise.resolve({
+          data: script.config ? [script.config] : [],
+          error: null,
+        });
       }
       return Promise.resolve({ data: [], error: null });
     },

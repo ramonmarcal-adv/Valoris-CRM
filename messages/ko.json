@@ -133,6 +133,11 @@
       "searchPlaceholder": "대화 검색...",
       "filterAll": "전체",
       "filterUnread": "읽지 않음",
+      "filterFavorites": "즐겨찾기",
+      "filterGroups": "그룹",
+      "filterReminders": "알림 및 팔로우업",
+      "filterManualReminders": "알림만",
+      "filterAutomatedReminders": "자동 팔로우업만",
       "filterOpen": "열림",
       "filterPending": "대기 중",
       "filterClosed": "닫힘",
@@ -142,7 +147,33 @@
       "clearAll": "모두 지우기",
       "noConversations": "대화를 찾을 수 없습니다",
       "noMessagesYet": "아직 메시지가 없습니다",
-      "unknown": "알 수 없음"
+      "unknown": "알 수 없음",
+      "assignmentAll": "전체",
+      "assignmentMine": "내 대화",
+      "assignmentUnassigned": "대기열",
+      "releaseMyLeads": "내 리드 해제",
+      "redistributeQueue": "대기열 재배분",
+      "redistributeQueueAdminOnly": "관리자 또는 소유자만 가능합니다",
+      "toastReleaseFailed": "리드 해제에 실패했습니다",
+      "toastReleasedCount": "{count}개 대화가 해제되었습니다",
+      "toastRedistributeFailed": "대기열 재배분에 실패했습니다",
+      "toastRedistributedCount": "{count}개 대화가 재배분되었습니다"
+    },
+    "board": {
+      "viewList": "목록",
+      "viewKanban": "칸반",
+      "groupByLabel": "그룹 기준",
+      "groupByStatus": "상태",
+      "groupByPipeline": "파이프라인",
+      "noPipeline": "파이프라인 없음",
+      "selectPipelinePlaceholder": "파이프라인 선택",
+      "noPipelinesYet": "아직 파이프라인이 없습니다",
+      "dropConversationHere": "대화를 여기에 놓으세요",
+      "noDealToMoveHint": "이 연락처는 이 파이프라인에 거래가 없습니다",
+      "toastFailedMoveConversation": "대화 업데이트에 실패했습니다",
+      "toastFailedMoveDeal": "거래 이동에 실패했습니다",
+      "configureStages": "열 구성",
+      "configureStagesDisabledHint": "파이프라인으로 그룹화할 때만 사용할 수 있습니다"
     },
     "messageThread": {
       "backToConversations": "대화 목록으로 돌아가기",
@@ -166,7 +197,17 @@
       "selectConversation": "대화를 선택하세요",
       "selectConversationHint": "왼쪽에서 대화를 선택해 메시지를 시작하세요",
       "today": "오늘",
-      "yesterday": "어제"
+      "yesterday": "어제",
+      "favoriteFailed": "메시지를 즐겨찾기하지 못했습니다",
+      "searchConversation": "대화 내 검색",
+      "closeSearch": "검색 닫기",
+      "searchPlaceholder": "이 대화에서 검색...",
+      "noResults": "결과 없음",
+      "matchCount": "{total}개 중 {current}번째",
+      "previousMatch": "이전 결과",
+      "nextMatch": "다음 결과",
+      "scheduleFailed": "메시지 예약에 실패했습니다",
+      "scheduleSuccess": "메시지가 예약되었습니다"
     },
     "sessionTimer": {
       "expired": "만료됨",
@@ -202,7 +243,9 @@
       "send": "보내기",
       "quickReplyNamePrompt": "이 빠른 답장의 이름을 지정하세요:",
       "quickReplySaved": "빠른 답장으로 저장되었습니다.",
-      "quickReplySaveError": "빠른 답장을 저장하지 못했습니다."
+      "quickReplySaveError": "빠른 답장을 저장하지 못했습니다.",
+      "scheduleSend": "예약 발송",
+      "scheduleConfirm": "예약"
     },
     "bubble": {
       "photo": "사진",
@@ -226,7 +269,9 @@
       "reactWith": "{emoji}(으)로 반응하기",
       "nothingToCopy": "복사할 내용이 없습니다",
       "copied": "복사됨",
-      "copyFailed": "복사 실패"
+      "copyFailed": "복사 실패",
+      "favorite": "즐겨찾기",
+      "unfavorite": "즐겨찾기 해제"
     },
     "replyQuote": {
       "photo": "[사진]",
@@ -261,7 +306,111 @@
       "deals": "딜",
       "noTags": "태그 없음",
       "noDeals": "딜 없음",
-      "addNotePlaceholder": "메모 추가..."
+      "addNotePlaceholder": "메모 추가...",
+      "communication": {
+        "title": "커뮤니케이션",
+        "mute": "음소거",
+        "favoritesTitle": "즐겨찾는 메시지",
+        "noFavorites": "즐겨찾는 메시지가 없습니다",
+        "nonTextMessage": "[미디어 메시지]",
+        "internalNotesTitle": "내부 메모",
+        "addInternalNotePlaceholder": "내부 메모 추가...",
+        "toastMuteFailed": "음소거 업데이트에 실패했습니다",
+        "toastUnfavoriteFailed": "즐겨찾기 해제에 실패했습니다",
+        "toastNoteFailed": "메모 추가에 실패했습니다",
+        "toastNoteDeleteFailed": "메모 삭제에 실패했습니다"
+      },
+      "management": {
+        "title": "관리",
+        "reminderTitle": "알림",
+        "createReminder": "알림 만들기",
+        "markComplete": "완료로 표시",
+        "appointmentsTitle": "예약",
+        "createAppointment": "예약 만들기",
+        "noUpcomingAppointments": "예정된 예약이 없습니다",
+        "historyTitle": "이력",
+        "noHistory": "기록된 활동이 없습니다",
+        "customFieldsTitle": "사용자 정의 필드",
+        "noCustomFields": "정의된 사용자 정의 필드가 없습니다. 설정에서 만드세요.",
+        "saveCustomFields": "사용자 정의 필드 저장",
+        "reminderTitleLabel": "제목",
+        "dueAtLabel": "날짜 및 시간",
+        "appointmentTitleLabel": "제목",
+        "startsAtLabel": "날짜 및 시간",
+        "cancel": "취소",
+        "save": "저장",
+        "historyNoteAdded": "메모 추가됨",
+        "historyDealCreated": "거래 생성됨: {title}",
+        "historyReminderCreated": "알림 생성됨: {title}",
+        "historyAppointmentCreated": "예약 생성됨: {title}",
+        "toastReminderFailed": "알림 저장에 실패했습니다",
+        "toastAppointmentFailed": "예약 저장에 실패했습니다",
+        "toastCustomFieldsSaved": "사용자 정의 필드가 저장되었습니다",
+        "toastCustomFieldsFailed": "사용자 정의 필드 저장에 실패했습니다"
+      },
+      "tagsSection": {
+        "title": "태그",
+        "createNewTag": "새 태그 만들기",
+        "noTags": "태그 없음",
+        "newTagPlaceholder": "태그 이름...",
+        "cancel": "취소",
+        "save": "저장",
+        "toastUpdateFailed": "태그 업데이트에 실패했습니다",
+        "toastCreateFailed": "태그 생성에 실패했습니다"
+      },
+      "faq": {
+        "title": "자주 묻는 질문 및 이의사항",
+        "refresh": "새로고침",
+        "empty": "이 대화의 태그에 사용 가능한 FAQ가 없습니다"
+      },
+      "actionsSection": {
+        "title": "작업",
+        "blockContact": "연락처 차단",
+        "contactBlocked": "연락처가 차단되었습니다",
+        "blockContactConfirm": "이 연락처를 차단하시겠습니까?",
+        "deleteConversation": "대화 삭제",
+        "deleteConversationConfirm": "이 대화를 삭제하시겠습니까? 이 작업은 취소할 수 없습니다.",
+        "cancel": "취소",
+        "toastBlockFailed": "연락처 차단에 실패했습니다",
+        "toastBlocked": "연락처가 차단되었습니다",
+        "toastDeleteFailed": "대화 삭제에 실패했습니다",
+        "toastDeleted": "대화가 삭제되었습니다"
+      },
+      "media": {
+        "title": "미디어, 링크 및 문서",
+        "tabs": {
+          "photos": "사진",
+          "videos": "동영상",
+          "links": "링크",
+          "docs": "문서"
+        },
+        "empty": {
+          "photos": "사진 없음",
+          "videos": "동영상 없음",
+          "links": "링크 없음",
+          "docs": "문서 없음"
+        },
+        "document": "문서"
+      }
+    },
+    "scheduledMessages": {
+      "title": "예약된 메시지",
+      "empty": "예약된 메시지가 없습니다",
+      "cancel": "취소",
+      "cancelFailed": "예약된 메시지 취소에 실패했습니다",
+      "unknownContact": "알 수 없는 연락처"
+    },
+    "contextMenu": {
+      "pin": "대화 고정",
+      "unpin": "고정 해제",
+      "favorite": "즐겨찾기 추가",
+      "unfavorite": "즐겨찾기 해제",
+      "markUnread": "읽지 않음으로 표시",
+      "archive": "대화 보관",
+      "assignAgent": "상담원 배정",
+      "unassign": "배정 해제",
+      "noTeammates": "사용 가능한 팀원이 없습니다",
+      "toastFailed": "대화를 업데이트하지 못했습니다"
     },
     "aiBanner": {
       "pausedTitle": "이 대화에서 AI 어시스턴트가 일시 중지됨",
@@ -835,7 +984,8 @@
         "wait": "대기",
         "condition": "조건 (If/Else)",
         "send_webhook": "웹훅 보내기",
-        "close_conversation": "대화 닫기"
+        "close_conversation": "대화 닫기",
+        "create_reminder": "알림 만들기"
       },
       "triggers": {
         "new_message_received": {
@@ -947,6 +1097,13 @@
         "placeholderValue": "텍스트 또는 {{ vars.x }} / {{ message.text }}",
         "titleLabel": "제목",
         "amountLabel": "수치",
+        "dueInAmountLabel": "기한",
+        "assignToLabel": "담당자",
+        "assignToOptions": {
+          "author": "자동화를 만든 사람",
+          "assigned_agent": "대화에 배정된 상담원",
+          "specific": "특정 상담원"
+        },
         "unitLabel": "단위",
         "units": {
           "minutes": "분",
@@ -1492,7 +1649,59 @@
       "step4_3": "위의 <strong class=\"text-foreground\">웹훅 콜백 URL</strong>을 붙여넣기",
       "step4_4": "여기서 설정한 것과 동일한 <strong class=\"text-foreground\">인증 토큰</strong>을 입력",
       "step4_5": "\"messages\" 웹훅 필드를 구독",
-      "metaDocs": "Meta WhatsApp API 문서"
+      "metaDocs": "Meta WhatsApp API 문서",
+      "providerMetaTab": "Meta Cloud API",
+      "providerEvolutionTab": "Evolution API (그룹)",
+      "evolution": {
+        "loadError": "Evolution API 설정을 불러오지 못했습니다",
+        "pollTimeout": "QR 코드 스캔 대기 시간이 초과되었습니다. 새 QR 코드를 생성한 후 다시 시도하세요.",
+        "connectedToast": "연결됨 — 이 번호가 Evolution API를 통해 연결되었습니다.",
+        "qrError": "QR 코드를 가져오지 못했습니다",
+        "requiredFields": "인스턴스 이름과 서버 URL은 필수입니다",
+        "apiKeyRequired": "초기 설정에는 API 키가 필요합니다",
+        "apiKeyReenter": "변경 사항을 저장하려면 API 키를 다시 입력하세요",
+        "saveError": "설정을 저장하지 못했습니다",
+        "webhookFailed": "저장되었지만 웹훅 등록에 실패했습니다: {error}. 이 문제가 해결될 때까지 수신 메시지가 도착하지 않습니다.",
+        "saveSuccess": "Evolution API 자격 증명이 저장되었습니다.",
+        "primaryOnToast": "이제 1:1 대화가 Evolution API를 통해 전달됩니다.",
+        "primaryOffToast": "이제 1:1 대화가 다시 Meta Cloud API를 통해 전달됩니다.",
+        "resetConfirm": "현재 Evolution API 설정을 삭제하고 다시 입력할 수 있게 합니다. 계속하시겠습니까?",
+        "resetError": "설정을 초기화하지 못했습니다",
+        "resetSuccess": "설정이 삭제되었습니다. 이제 자격 증명을 다시 입력할 수 있습니다.",
+        "riskBannerTitle": "비공식 API — 실제 차단 위험",
+        "riskBannerBody": "Evolution API는 Meta의 공식 Cloud API가 아니라 WhatsApp Web 프로토콜을 통해 연결됩니다. 비즈니스 번호에 사용하면 WhatsApp 서비스 약관을 위반하며, Meta 지원을 통한 구제 수단 없이 번호가 차단될 실제 위험이 있습니다. 잃어도 괜찮은 번호만 연결하세요.",
+        "connected": "연결됨",
+        "disconnected": "연결 안 됨",
+        "connectedDesc": "이 인스턴스가 연결되어 그룹 메시지를 주고받을 준비가 되었습니다.",
+        "disconnectedDesc": "아래에 자격 증명을 저장한 후 QR 코드를 스캔하여 연결하세요.",
+        "credentialsTitle": "서버 자격 증명",
+        "credentialsDesc": "자체 호스팅 중인 Evolution API 서버 정보를 입력하세요.",
+        "instanceName": "인스턴스 이름",
+        "instanceNamePlaceholder": "예: valoris-crm",
+        "apiUrl": "서버 URL",
+        "apiUrlPlaceholder": "https://your-evolution-server.com",
+        "apiKey": "API 키",
+        "apiKeyPlaceholder": "Evolution API 키를 입력하세요",
+        "apiKeyHidden": "보안을 위해 키가 숨겨져 있습니다. 설정을 업데이트하려면 다시 입력하세요.",
+        "routingTitle": "1:1 대화 라우팅",
+        "routingDesc": "그룹 메시지는 항상 Evolution API를 사용합니다 — Meta의 Cloud API는 그룹 메시지를 전혀 주고받을 수 없습니다.",
+        "usePrimary": "1:1 대화에 Evolution API 사용",
+        "usePrimaryHint": "기본값은 꺼짐입니다: 1:1 대화는 계속 Meta Cloud API를 사용하고 그룹 메시지만 Evolution을 통해 전달됩니다. 켜면 1:1 메시지도 Evolution을 통해 전송됩니다.",
+        "qrTitle": "스캔하여 연결",
+        "qrDesc": "연결할 휴대폰에서 WhatsApp을 열고 연결된 기기로 이동하여 이 코드를 스캔하세요.",
+        "waitingForScan": "스캔 대기 중...",
+        "qrLoading": "불러오는 중...",
+        "qrRefresh": "QR 코드 새로고침",
+        "qrGenerate": "QR 코드 생성",
+        "saving": "저장 중...",
+        "saveConfig": "설정 저장",
+        "resetting": "초기화 중...",
+        "resetConfig": "설정 초기화",
+        "aboutTitle": "Evolution API 정보",
+        "aboutBody1": "Evolution API는 WhatsApp Web과 동일한 프로토콜을 기반으로 구축된 자체 호스팅 오픈소스 WhatsApp 커넥터입니다. 이 앱이 WhatsApp 그룹에서 메시지를 주고받을 수 있는 유일한 방법입니다.",
+        "aboutBody2": "서버 자체(Docker, 데이터베이스, Redis)는 이 앱이 프로비저닝하거나 운영하지 않는 별도의 인프라입니다 — HTTP를 통해서만 통신합니다.",
+        "evolutionDocs": "Evolution API 문서"
+      }
     },
     "sections": {
       "overview": "개요",

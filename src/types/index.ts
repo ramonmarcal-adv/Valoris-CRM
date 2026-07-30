@@ -113,6 +113,20 @@ export interface Contact {
   /** Hydrated by queries that embed `contact_tags(tags(*))` (e.g. the
    *  Inbox conversation list, for tag filtering). Absent otherwise. */
   tags?: Tag[];
+  /** "Bloquear contato" (migration 037). Optional — absent on payloads
+   *  fetched before this column existed. */
+  is_blocked?: boolean;
+  blocked_at?: string;
+  blocked_by_user_id?: string;
+  /** "Group-as-synthetic-contact" (migration 049) — true means this row
+   *  represents a WhatsApp GROUP, not a person. `phone` holds `group_jid`
+   *  too (never a real dialable number) so nothing crashes on a NULL
+   *  phone; any phone-SEND code path must check this flag first and use
+   *  `group_jid` as the actual send target for Evolution API instead. */
+  is_group_placeholder?: boolean;
+  /** WhatsApp group JID, e.g. '120363123456789012@g.us'. Only set when
+   *  is_group_placeholder is true. */
+  group_jid?: string;
 }
 
 export interface Tag {
@@ -153,6 +167,9 @@ export interface ContactNote {
   user_id: string;
   note_text: string;
   created_at: string;
+  /** True for "Notas internas" (migration 039); false/absent = the
+   *  Inbox sidebar's general Notes feed. */
+  is_internal?: boolean;
 }
 
 export type ConversationStatus = 'open' | 'pending' | 'closed';
@@ -169,6 +186,21 @@ export interface Conversation {
   created_at: string;
   updated_at: string;
   contact?: Contact;
+  /**
+   * Conversation-list context-menu state (migration 037): pin floats
+   * the conversation to the top of the list; favorite/archive/mute are
+   * plain flags toggled from the right-click menu / sidebar.
+   */
+  is_pinned: boolean;
+  is_favorite: boolean;
+  is_archived: boolean;
+  is_muted: boolean;
+  /** Groundwork for a future non-Meta WhatsApp integration (migration 044)
+   *  — always false today since the Cloud API can't ingest group chats.
+   *  `group_participant_count` has no writer yet; treat as absent even
+   *  when `is_group` is true. */
+  is_group: boolean;
+  group_participant_count?: number;
   /**
    * AI auto-reply state for this thread (migration 029 + 033):
    *  - `ai_autoreply_disabled` — the bot is paused here (a human took
@@ -222,6 +254,11 @@ export interface Message {
   id: string;
   conversation_id: string;
   sender_type: SenderType;
+  /** Only meaningful when the parent conversation is_group=true: the
+   *  contacts.id of the individual participant who sent this message
+   *  inside the group (migration 049). NULL for 1:1 conversations and
+   *  NULL when an inbound participant JID couldn't be resolved to a
+   *  contact (e.g. a Baileys @lid identity). */
   sender_id?: string;
   content_type: ContentType;
   content_text?: string;
@@ -266,15 +303,127 @@ export interface MessageReaction {
   created_at: string;
 }
 
+// ============================================================
+// Inbox sidebar entities (migrations 038-042)
+// ============================================================
+
+export interface MessageFavorite {
+  id: string;
+  account_id: string;
+  conversation_id: string;
+  message_id: string;
+  user_id: string;
+  created_at: string;
+}
+
+export type ReminderStatus = 'pending' | 'completed';
+/** 'manual' = created from the Inbox sidebar; 'automated' = created by an
+ *  automation's "create_reminder" step (migration 046). */
+export type ReminderSource = 'manual' | 'automated';
+
+export interface ContactReminder {
+  id: string;
+  account_id: string;
+  contact_id: string;
+  conversation_id?: string;
+  created_by_user_id: string;
+  assigned_to_user_id?: string;
+  title: string;
+  due_at: string;
+  completed_at?: string | null;
+  source: ReminderSource;
+  created_at: string;
+}
+
+export type AppointmentStatus = 'scheduled' | 'completed' | 'cancelled';
+
+export interface ContactAppointment {
+  id: string;
+  account_id: string;
+  contact_id: string;
+  conversation_id?: string;
+  created_by_user_id: string;
+  assigned_to_user_id?: string;
+  title: string;
+  starts_at: string;
+  ends_at?: string;
+  location?: string;
+  notes?: string;
+  status: AppointmentStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FaqEntry {
+  id: string;
+  account_id: string;
+  question: string;
+  answer: string;
+  created_by_user_id?: string;
+  created_at: string;
+  updated_at: string;
+  /** Hydrated by queries that embed `faq_entry_tags(tags(*))`. */
+  tags?: Tag[];
+}
+
+export interface FaqEntryTag {
+  id: string;
+  faq_entry_id: string;
+  tag_id: string;
+  created_at: string;
+}
+
+// ============================================================
+// Scheduled messages — "Mensagens agendadas" (migration 047)
+// ============================================================
+
+export type ScheduledMessageContentType = 'text' | 'image' | 'document' | 'audio' | 'video';
+export type ScheduledMessageStatus = 'pending' | 'sent' | 'cancelled' | 'failed';
+
+export interface ScheduledMessage {
+  id: string;
+  account_id: string;
+  conversation_id: string;
+  contact_id: string;
+  created_by_user_id: string;
+  content_type: ScheduledMessageContentType;
+  content_text?: string | null;
+  media_url?: string | null;
+  filename?: string | null;
+  reply_to_message_id?: string | null;
+  scheduled_at: string;
+  status: ScheduledMessageStatus;
+  error_message?: string | null;
+  sent_message_id?: string | null;
+  created_at: string;
+  updated_at: string;
+  /** Hydrated by the "Mensagens agendadas" panel query. */
+  conversation?: { id: string; contact?: { name?: string; phone: string } };
+}
+
+export type WhatsAppApiType = 'meta_cloud' | 'evolution';
+
 export interface WhatsAppConfig {
   id: string;
   user_id: string;
-  phone_number_id: string;
+  account_id: string;
+  /** Which provider this row talks to (migration 048). Meta-only fields
+   *  below are optional because an 'evolution' row leaves them null —
+   *  the DB CHECK (whatsapp_config_provider_fields_chk) enforces the
+   *  right fields are present per api_type, not the TS type alone. */
+  api_type: WhatsAppApiType;
+  /** True if this is the provider used for 1:1 sends on this account.
+   *  Group conversations always route to 'evolution' regardless of this
+   *  flag — see resolveProviderConfig in
+   *  src/lib/whatsapp/resolve-provider-config.ts. At most one row per
+   *  account has is_primary=true (partial unique index). */
+  is_primary: boolean;
+
+  // ---- Meta Cloud API fields (api_type === 'meta_cloud') ----
+  phone_number_id?: string;
   waba_id?: string;
-  access_token: string;
+  access_token?: string;
   verify_token?: string;
-  status: 'connected' | 'disconnected';
-  connected_at?: string;
   /**
    * Set when POST /{phone_number_id}/register last succeeded. NULL
    * means the number was saved but never actually subscribed for
@@ -285,6 +434,23 @@ export interface WhatsAppConfig {
   subscribed_apps_at?: string;
   /** Last error from /register; cleared on success. */
   last_registration_error?: string;
+
+  // ---- Evolution API fields (api_type === 'evolution') ----
+  /** Evolution "instance" name — the session identifier in Evolution's
+   *  own API, e.g. used in /instance/connect/{instanceName}. */
+  instance_name?: string;
+  /** Base URL of the self-hosted Evolution API server this row talks
+   *  to. That server is infrastructure this app doesn't provision. */
+  api_url?: string;
+  /** Evolution's `apikey` header value — encrypted at rest with the
+   *  same encrypt()/decrypt() as access_token. */
+  api_key?: string;
+  /** Random per-row secret checked (constant-time) on inbound webhook
+   *  POSTs — Evolution has no HMAC-over-body scheme like Meta's. */
+  webhook_secret?: string;
+
+  status: 'connected' | 'disconnected';
+  connected_at?: string;
 }
 
 // Raw Meta status enum. We persist this verbatim from Meta (sync + webhook)
@@ -454,7 +620,8 @@ export type AutomationStepType =
   | 'wait'
   | 'condition'
   | 'send_webhook'
-  | 'close_conversation';
+  | 'close_conversation'
+  | 'create_reminder';
 
 export type AutomationLogStatus = 'success' | 'partial' | 'failed';
 
@@ -559,6 +726,17 @@ export interface SendWebhookStepConfig {
   body_template?: string;
 }
 
+export interface CreateReminderStepConfig {
+  /** Supports `{{ vars.* }}` / `{{ message.text }}` interpolation, same as
+   *  UpdateContactFieldStepConfig.value. */
+  title: string;
+  due_in_amount: number;
+  due_in_unit: 'minutes' | 'hours' | 'days';
+  assign_to: 'author' | 'assigned_agent' | 'specific';
+  /** Only used when assign_to === 'specific'. */
+  assigned_to_user_id?: string;
+}
+
 export type AutomationStepConfig =
   | SendMessageStepConfig
   | SendButtonsStepConfig
@@ -571,6 +749,7 @@ export type AutomationStepConfig =
   | WaitStepConfig
   | ConditionStepConfig
   | SendWebhookStepConfig
+  | CreateReminderStepConfig
   | Record<string, never>
   | Record<string, unknown>;
 

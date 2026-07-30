@@ -85,10 +85,14 @@ export async function GET() {
       )
     }
 
+    // This route is Meta-only (Evolution has its own config route/UI,
+    // Área 5 of the Evolution plan) — scoped explicitly so an account
+    // with both providers configured doesn't hit "multiple rows" here.
     const { data: config, error: configError } = await supabase
       .from('whatsapp_config')
       .select('phone_number_id, access_token, status')
       .eq('account_id', accountId)
+      .eq('api_type', 'meta_cloud')
       .maybeSingle()
 
     if (configError) {
@@ -272,10 +276,12 @@ export async function POST(request: Request) {
     // Look up any pre-existing row for this account so we know whether
     // this number is already registered with Meta — if so we can skip
     // /register when the user didn't provide a PIN this time around.
+    // Scoped to meta_cloud: this route only ever writes Meta rows.
     const { data: existing } = await supabase
       .from('whatsapp_config')
       .select('id, registered_at, phone_number_id')
       .eq('account_id', accountId)
+      .eq('api_type', 'meta_cloud')
       .maybeSingle()
 
     const sameNumber =
@@ -367,10 +373,14 @@ export async function POST(request: Request) {
     }
 
     if (existing) {
+      // Scoped to meta_cloud: this route only ever writes Meta rows, and
+      // an unscoped update would also clobber a sibling Evolution row now
+      // that an account can have one of each (migration 048).
       const { error: updateError } = await supabase
         .from('whatsapp_config')
         .update(baseRow)
         .eq('account_id', accountId)
+        .eq('api_type', 'meta_cloud')
 
       if (updateError) {
         console.error('Error updating whatsapp_config:', updateError)
@@ -381,14 +391,16 @@ export async function POST(request: Request) {
       }
     } else {
       // Insert with both columns: `account_id` is the tenancy key
-      // (NOT NULL post-017, UNIQUE so duplicates trip the constraint
-      // up-front), `user_id` is the audit column identifying which
-      // member of the account saved the config.
+      // (NOT NULL post-017, UNIQUE(account_id, api_type) post-048), `user_id`
+      // is the audit column identifying which member of the account saved
+      // the config. `api_type` is set explicitly even though it's the
+      // column default, since this row is what makes it meta_cloud.
       const { error: insertError } = await supabase
         .from('whatsapp_config')
         .insert({
           account_id: accountId,
           user_id: user.id,
+          api_type: 'meta_cloud',
           ...baseRow,
         })
 
@@ -459,10 +471,15 @@ export async function DELETE() {
       )
     }
 
+    // Scoped to meta_cloud: this route only ever manages the Meta config
+    // (fields, probe, "Reset Configuration" button all speak Meta), and an
+    // unscoped delete would also remove a sibling Evolution row now that
+    // an account can have one of each (migration 048).
     const { error: deleteError } = await supabase
       .from('whatsapp_config')
       .delete()
       .eq('account_id', accountId)
+      .eq('api_type', 'meta_cloud')
 
     if (deleteError) {
       console.error('Error deleting whatsapp_config:', deleteError)

@@ -121,10 +121,13 @@ export function SettingsOverview({
     (async () => {
       setWhatsappLoading(true);
       const [row, health] = await Promise.allSettled([
+        // phone_number_id is Meta-only — scoped so a sibling Evolution
+        // row (migration 048) doesn't make .maybeSingle() throw.
         supabase
           .from('whatsapp_config')
           .select('phone_number_id')
           .eq('account_id', acctId)
+          .eq('api_type', 'meta_cloud')
           .maybeSingle(),
         fetch('/api/whatsapp/config', { cache: 'no-store' }).then((r) => r.json()),
       ]);

@@ -69,12 +69,19 @@ export async function dispatchInboundToAiReply(
 
     const { data: conv, error: convErr } = await db
       .from('conversations')
-      .select('assigned_agent_id, ai_autoreply_disabled, ai_reply_count')
+      .select('assigned_agent_id, ai_autoreply_disabled, ai_reply_count, is_group')
       .eq('id', conversationId)
       .maybeSingle()
     if (convErr || !conv) return
     if (conv.assigned_agent_id) return // a human owns this thread
     if (conv.ai_autoreply_disabled) return // handed off / turned off here
+    // Group conversations (Evolution API only — see resolveProviderConfig)
+    // never auto-reply, even if the account has auto-reply enabled for
+    // 1:1. A bad LLM reply inside someone else's WhatsApp group is
+    // visible to every participant at once — a much larger blast radius
+    // than a 1:1 mistake. No opt-in for this yet; see the Evolution API
+    // integration plan.
+    if (conv.is_group) return
     // Cheap early-out; the authoritative cap check is the atomic claim
     // below (this read can race a concurrent inbound).
     if (conv.ai_reply_count >= config.autoReplyMaxPerConversation) return

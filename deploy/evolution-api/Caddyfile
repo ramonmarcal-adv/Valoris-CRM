@@ -1,0 +1,7 @@
+# Caddy automatically requests and renews a Let's Encrypt certificate
+# for whatever domain is here — no manual TLS setup. {$EVOLUTION_DOMAIN}
+# is read from the container's environment (set via docker-compose.yml's
+# env_file), which must match the A record you pointed at this VPS.
+{$EVOLUTION_DOMAIN} {
+	reverse_proxy evolution-api:8080
+}

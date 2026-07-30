@@ -108,11 +108,14 @@ export async function POST(request: Request) {
       );
     }
 
-    // WhatsApp config + access token. Account-scoped post-multi-user.
+    // WhatsApp config + access token. Reactions are Meta-only (no
+    // Evolution equivalent implemented) — scoped so a sibling Evolution
+    // row (migration 048) doesn't make .single() throw.
     const { data: config, error: configError } = await supabase
       .from('whatsapp_config')
       .select('phone_number_id, access_token')
       .eq('account_id', accountId)
+      .eq('api_type', 'meta_cloud')
       .single();
 
     if (configError || !config) {

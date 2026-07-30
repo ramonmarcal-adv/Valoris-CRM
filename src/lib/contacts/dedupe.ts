@@ -31,22 +31,34 @@ export interface ExistingContact {
  * or null. Pre-filters in SQL by the last-8-digit suffix (so we don't
  * pull every contact), then applies the strict `phonesMatch` in JS on
  * the small candidate set — the exact approach the webhook has used.
+ *
+ * `excludeGroupPlaceholders`: a WhatsApp group's synthetic contact row
+ * (migration 049) stores its JID's long digit prefix in `phone` — real
+ * collision with a genuine phone number is exceedingly unlikely but not
+ * impossible. The Evolution webhook's participant-resolution path (a
+ * real person's number, inside a group) sets this so a group's own
+ * placeholder row can never be misattributed as the sender.
  */
 export async function findExistingContact(
   db: SupabaseClient,
   accountId: string,
   phone: string,
+  options?: { excludeGroupPlaceholders?: boolean },
 ): Promise<ExistingContact | null> {
   const normalized = normalizePhone(phone);
   if (!normalized) return null;
 
   const suffix = normalized.length >= 8 ? normalized.slice(-8) : normalized;
 
-  const { data, error } = await db
+  let query = db
     .from("contacts")
     .select("*")
     .eq("account_id", accountId)
     .like("phone", `%${suffix}`);
+  if (options?.excludeGroupPlaceholders) {
+    query = query.eq("is_group_placeholder", false);
+  }
+  const { data, error } = await query;
 
   if (error || !data) return null;
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useCallback, useEffect, useRef } from "react";
+import { Suspense, useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
@@ -8,18 +8,51 @@ import {
   CONVERSATION_SELECT,
   normalizeConversation,
 } from "@/lib/inbox/conversations";
-import type { Conversation, Message, Contact, ConversationStatus } from "@/types";
+import type {
+  Conversation,
+  Message,
+  Contact,
+  ConversationStatus,
+  Pipeline,
+  PipelineStage,
+  Profile,
+} from "@/types";
 import { useRealtime } from "@/hooks/use-realtime";
 import { ConversationList } from "@/components/inbox/conversation-list";
+import { ConversationBoard, type ConversationBoardColumn } from "@/components/inbox/conversation-board";
 import { MessageThread } from "@/components/inbox/message-thread";
 import { ContactSidebar } from "@/components/inbox/contact-sidebar";
+import { PipelineSettings } from "@/components/pipelines/pipeline-settings";
+import { moveDealToStage } from "@/lib/deals/move-deal";
 import { toast } from "sonner";
-import { WifiOff } from "lucide-react";
+import { WifiOff, List, Kanban as KanbanIcon, ChevronDown, GitBranch, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 // Remembers the agent's show/hide choice for the desktop contact panel
 // across reloads and sessions (device-scoped, like the theme prefs).
 const CONTACT_PANEL_STORAGE_KEY = "wacrm:inbox:contact-panel-open";
+// Remembers the agent's List/Kanban choice and, within Kanban, whether
+// columns group by conversation status or by pipeline stage.
+const VIEW_MODE_STORAGE_KEY = "wacrm:inbox:view-mode";
+const GROUP_BY_STORAGE_KEY = "wacrm:inbox:kanban-group-by";
+const NO_PIPELINE_COLUMN_ID = "__no_pipeline__";
+
+type InboxViewMode = "list" | "kanban";
+type KanbanGroupBy = "status" | "pipeline";
+
+/** Lean shape for the pipeline-grouping board — avoids the full `Deal`
+ *  select (contact/assignee joins) the Pipelines page needs. */
+interface PipelineDealLite {
+  id: string;
+  contact_id: string | null;
+  stage_id: string;
+}
 
 // `useSearchParams` (the `?c=<id>` deep link below) requires a Suspense
 // boundary or the production build bails to CSR and errors out. Thin
@@ -34,6 +67,8 @@ export default function InboxPage() {
 
 function InboxPageInner() {
   const t = useTranslations("Inbox.page");
+  const tBoard = useTranslations("Inbox.board");
+  const tStatus = useTranslations("Inbox.messageThread");
   const router = useRouter();
   const searchParams = useSearchParams();
   /**
@@ -200,13 +235,18 @@ function InboxPageInner() {
         return;
       }
 
+      // Provider-agnostic: the banner just needs to know "is *something*
+      // connected" — an account can now have up to two rows (one per
+      // provider, migration 048), so fetch all and check any of them
+      // rather than `.maybeSingle()`, which throws on 2+ rows.
       const { data } = await supabase
         .from("whatsapp_config")
         .select("status")
-        .eq("account_id", accountId)
-        .maybeSingle();
+        .eq("account_id", accountId);
 
-      setWhatsappConnected(data?.status === "connected");
+      setWhatsappConnected(
+        (data ?? []).some((row) => row.status === "connected")
+      );
     };
 
     checkConnection();
@@ -502,6 +542,14 @@ function InboxPageInner() {
   }, [router]);
 
 
+  const handleConversationDeleted = useCallback(
+    (conversationId: string) => {
+      setConversations((prev) => prev.filter((c) => c.id !== conversationId));
+      handleCloseConversation();
+    },
+    [handleCloseConversation],
+  );
+
   const handleMessagesLoaded = useCallback((loaded: Message[]) => {
     setMessages(loaded);
   }, []);
@@ -554,6 +602,299 @@ function InboxPageInner() {
     [activeConversation]
   );
 
+  // Account members, for the conversation-list/board context menu's
+  // "Atribuir agente" submenu. Fetched once here (not per row) and
+  // shared by both ConversationList and ConversationBoard — mirrors the
+  // profiles fetch in MessageThread (RLS-bounded to the caller's account).
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    const supabase = createClient();
+    supabase
+      .from("profiles")
+      .select("*")
+      .order("full_name")
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) {
+          console.error("Failed to fetch profiles:", error);
+          return;
+        }
+        setProfiles((data as Profile[]) ?? []);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Generic optimistic patch applier for the context menu's pin/favorite/
+  // mark-unread/archive/assign actions — the menu itself does the Supabase
+  // write + revert-on-error; this just mirrors the result into local state,
+  // same shape as handleStatusChange/handleAssignChange above.
+  const handleConversationChanged = useCallback(
+    (conversationId: string, patch: Partial<Conversation>) => {
+      setConversations((prev) =>
+        prev.map((c) => (c.id === conversationId ? { ...c, ...patch } : c))
+      );
+      if (activeConversation?.id === conversationId) {
+        setActiveConversation((prev) => (prev ? { ...prev, ...patch } : prev));
+      }
+    },
+    [activeConversation]
+  );
+
+  // ─────────────────────────────────────────────────────────────
+  // Kanban view: List/Kanban toggle + (in Kanban) group-by-status vs
+  // group-by-pipeline-stage. Restored from localStorage after mount for
+  // the same hydration-safety reason as contactPanelOpen above.
+  // ─────────────────────────────────────────────────────────────
+  const [viewMode, setViewMode] = useState<InboxViewMode>("list");
+  const [groupBy, setGroupBy] = useState<KanbanGroupBy>("status");
+  useEffect(() => {
+    try {
+      const storedView = localStorage.getItem(VIEW_MODE_STORAGE_KEY);
+      if (storedView === "list" || storedView === "kanban") setViewMode(storedView);
+      const storedGroup = localStorage.getItem(GROUP_BY_STORAGE_KEY);
+      if (storedGroup === "status" || storedGroup === "pipeline") setGroupBy(storedGroup);
+    } catch {
+      // localStorage can throw in private-browsing / sandboxed contexts.
+    }
+  }, []);
+
+  const handleViewModeChange = useCallback((mode: InboxViewMode) => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem(VIEW_MODE_STORAGE_KEY, mode);
+    } catch {
+      // Persistence is best-effort; ignore storage failures.
+    }
+  }, []);
+
+  const handleGroupByChange = useCallback((mode: KanbanGroupBy) => {
+    setGroupBy(mode);
+    try {
+      localStorage.setItem(GROUP_BY_STORAGE_KEY, mode);
+    } catch {
+      // Persistence is best-effort; ignore storage failures.
+    }
+  }, []);
+
+  // Pipeline data is only needed for the "group by pipeline" board, so it's
+  // loaded lazily rather than unconditionally on every inbox visit.
+  const [pipelines, setPipelines] = useState<Pipeline[]>([]);
+  const [selectedPipelineId, setSelectedPipelineId] = useState<string>("");
+  const [pipelineStages, setPipelineStages] = useState<PipelineStage[]>([]);
+  const [pipelineDeals, setPipelineDeals] = useState<PipelineDealLite[]>([]);
+  // "Configurar colunas" gear next to the pipeline picker (kanban-in-inbox,
+  // Área 4 of the feature plan) — reuses PipelineSettings verbatim, the
+  // same dialog the Pipelines page opens, so column CRUD stays a single
+  // implementation. Bumping stagesRefetchToken forces the stages/deals
+  // effect below to refire after a save even when selectedPipelineId
+  // itself hasn't changed.
+  const [pipelineSettingsOpen, setPipelineSettingsOpen] = useState(false);
+  const [stagesRefetchToken, setStagesRefetchToken] = useState(0);
+
+  const refetchPipelines = useCallback(() => {
+    const supabase = createClient();
+    supabase
+      .from("pipelines")
+      .select("*")
+      .order("created_at")
+      .then(({ data }) => {
+        const list = (data as Pipeline[]) ?? [];
+        setPipelines(list);
+        setSelectedPipelineId((prev) =>
+          list.some((p) => p.id === prev) ? prev : list[0]?.id || "",
+        );
+      });
+  }, []);
+
+  useEffect(() => {
+    if (viewMode !== "kanban" || groupBy !== "pipeline" || pipelines.length > 0) return;
+    let cancelled = false;
+    (async () => {
+      const supabase = createClient();
+      const { data } = await supabase.from("pipelines").select("*").order("created_at");
+      if (cancelled) return;
+      const list = (data as Pipeline[]) ?? [];
+      setPipelines(list);
+      setSelectedPipelineId((prev) => prev || list[0]?.id || "");
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [viewMode, groupBy, pipelines.length]);
+
+  useEffect(() => {
+    if (viewMode !== "kanban" || groupBy !== "pipeline" || !selectedPipelineId) return;
+    let cancelled = false;
+    (async () => {
+      const supabase = createClient();
+      const [stagesRes, dealsRes] = await Promise.all([
+        supabase
+          .from("pipeline_stages")
+          .select("*")
+          .eq("pipeline_id", selectedPipelineId)
+          .order("position"),
+        // Sorted newest-first so the "most recently updated deal wins"
+        // per-contact reduction below is a simple first-write-wins pass.
+        supabase
+          .from("deals")
+          .select("id, contact_id, stage_id")
+          .eq("pipeline_id", selectedPipelineId)
+          .order("updated_at", { ascending: false }),
+      ]);
+      if (cancelled) return;
+      setPipelineStages((stagesRes.data as PipelineStage[]) ?? []);
+      setPipelineDeals((dealsRes.data as PipelineDealLite[]) ?? []);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [viewMode, groupBy, selectedPipelineId, stagesRefetchToken]);
+
+  // A contact can have more than one deal in the same pipeline (repeat
+  // customer); we bucket the conversation under the most-recently-updated
+  // one. `pipelineDeals` is fetched newest-first, so first-seen wins.
+  const bestDealByContactId = useMemo(() => {
+    const map = new Map<string, PipelineDealLite>();
+    for (const deal of pipelineDeals) {
+      if (!deal.contact_id) continue;
+      if (!map.has(deal.contact_id)) map.set(deal.contact_id, deal);
+    }
+    return map;
+  }, [pipelineDeals]);
+
+  const statusColumns: ConversationBoardColumn[] = useMemo(
+    () => [
+      { id: "open", title: tStatus("statusOpen"), color: "var(--primary)" },
+      { id: "pending", title: tStatus("statusPending"), color: "#f59e0b" },
+      { id: "closed", title: tStatus("statusClosed"), color: "var(--muted-foreground)" },
+    ],
+    [tStatus],
+  );
+
+  const pipelineColumns: ConversationBoardColumn[] = useMemo(() => {
+    const sorted = [...pipelineStages].sort((a, b) => a.position - b.position);
+    return [
+      ...sorted.map((s) => ({ id: s.id, title: s.name, color: s.color })),
+      { id: NO_PIPELINE_COLUMN_ID, title: tBoard("noPipeline") },
+    ];
+  }, [pipelineStages, tBoard]);
+
+  const conversationsByStatusColumn = useMemo(() => {
+    const map = new Map<string, Conversation[]>();
+    for (const col of statusColumns) map.set(col.id, []);
+    for (const conv of conversations) {
+      map.get(conv.status)?.push(conv);
+    }
+    return map;
+  }, [statusColumns, conversations]);
+
+  const conversationsByPipelineColumn = useMemo(() => {
+    const map = new Map<string, Conversation[]>();
+    for (const col of pipelineColumns) map.set(col.id, []);
+    for (const conv of conversations) {
+      const deal = bestDealByContactId.get(conv.contact_id);
+      const columnId = deal && map.has(deal.stage_id) ? deal.stage_id : NO_PIPELINE_COLUMN_ID;
+      map.get(columnId)?.push(conv);
+    }
+    return map;
+  }, [pipelineColumns, conversations, bestDealByContactId]);
+
+  const getPipelineDragHint = useCallback(
+    (conv: Conversation) =>
+      bestDealByContactId.has(conv.contact_id) ? undefined : tBoard("noDealToMoveHint"),
+    [bestDealByContactId, tBoard],
+  );
+
+  // Status-grouping drag: persist straight to `conversations.status`,
+  // mirroring the thread header's status dropdown.
+  const handleConversationStatusMoved = useCallback(
+    async (conversationId: string, newStatus: string) => {
+      const status = newStatus as ConversationStatus;
+      let previousStatus: ConversationStatus | undefined;
+      setConversations((prev) =>
+        prev.map((c) => {
+          if (c.id !== conversationId) return c;
+          previousStatus = c.status;
+          return { ...c, status };
+        }),
+      );
+      if (activeConversation?.id === conversationId) {
+        setActiveConversation((prev) => (prev ? { ...prev, status } : prev));
+      }
+
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("conversations")
+        .update({ status })
+        .eq("id", conversationId);
+
+      if (error && previousStatus) {
+        toast.error(tBoard("toastFailedMoveConversation"));
+        const revertTo = previousStatus;
+        setConversations((prev) =>
+          prev.map((c) => (c.id === conversationId ? { ...c, status: revertTo } : c)),
+        );
+        if (activeConversation?.id === conversationId) {
+          setActiveConversation((prev) => (prev ? { ...prev, status: revertTo } : prev));
+        }
+      }
+    },
+    [activeConversation, tBoard],
+  );
+
+  // Pipeline-grouping drag: the card represents a conversation, but the
+  // move mutates the linked deal's `stage_id` — same write path (and same
+  // shared helper) the Pipelines board itself uses, so moving a deal via
+  // either board stays consistent.
+  const handleConversationDealMoved = useCallback(
+    async (conversationId: string, newStageId: string) => {
+      if (newStageId === NO_PIPELINE_COLUMN_ID) return;
+      const conv = conversations.find((c) => c.id === conversationId);
+      const deal = conv ? bestDealByContactId.get(conv.contact_id) : undefined;
+      if (!deal) return;
+
+      const previousStageId = deal.stage_id;
+      setPipelineDeals((prev) =>
+        prev.map((d) => (d.id === deal.id ? { ...d, stage_id: newStageId } : d)),
+      );
+
+      const supabase = createClient();
+      const { error } = await moveDealToStage(supabase, deal.id, newStageId);
+      if (error) {
+        toast.error(tBoard("toastFailedMoveDeal"));
+        setPipelineDeals((prev) =>
+          prev.map((d) => (d.id === deal.id ? { ...d, stage_id: previousStageId } : d)),
+        );
+      }
+    },
+    [conversations, bestDealByContactId, tBoard],
+  );
+
+  const handleBoardMove = useCallback(
+    (conversationId: string, _fromColumnId: string, toColumnId: string) => {
+      if (groupBy === "status") {
+        handleConversationStatusMoved(conversationId, toColumnId);
+      } else {
+        handleConversationDealMoved(conversationId, toColumnId);
+      }
+    },
+    [groupBy, handleConversationStatusMoved, handleConversationDealMoved],
+  );
+
+  // Kanban is a triage view, not a second place to read the thread — a
+  // card click hands off to the list/thread layout with that conversation
+  // selected, rather than growing a fourth pane.
+  const handleBoardCardSelect = useCallback(
+    (conv: Conversation) => {
+      handleViewModeChange("list");
+      handleSelectConversation(conv);
+    },
+    [handleViewModeChange, handleSelectConversation],
+  );
+
   // On mobile (<lg) we show a SINGLE pane — either the list or the
   // thread — rather than cramming both side-by-side. Selecting a
   // conversation slides the thread in; the thread's back button pops
@@ -574,6 +915,152 @@ function InboxPageInner() {
         </div>
       )}
 
+      {/* List/Kanban toggle, plus the Kanban-only group-by + pipeline
+          picker. Kept as its own toolbar row (not inside ConversationList)
+          because Kanban replaces the whole three-pane layout below, not
+          just the list column. */}
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2">
+        <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-0.5">
+          <button
+            type="button"
+            onClick={() => handleViewModeChange("list")}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+              viewMode === "list"
+                ? "bg-muted text-foreground"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <List className="h-3.5 w-3.5" />
+            {tBoard("viewList")}
+          </button>
+          <button
+            type="button"
+            onClick={() => handleViewModeChange("kanban")}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+              viewMode === "kanban"
+                ? "bg-muted text-foreground"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <KanbanIcon className="h-3.5 w-3.5" />
+            {tBoard("viewKanban")}
+          </button>
+        </div>
+
+        {viewMode === "kanban" && (
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-0.5">
+              <button
+                type="button"
+                onClick={() => handleGroupByChange("status")}
+                className={cn(
+                  "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                  groupBy === "status"
+                    ? "bg-muted text-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {tBoard("groupByStatus")}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleGroupByChange("pipeline")}
+                className={cn(
+                  "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                  groupBy === "pipeline"
+                    ? "bg-muted text-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {tBoard("groupByPipeline")}
+              </button>
+            </div>
+
+            {groupBy === "pipeline" && pipelines.length > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs text-foreground transition-colors hover:bg-muted data-[popup-open]:bg-muted">
+                  <GitBranch className="h-3.5 w-3.5 text-primary" />
+                  {pipelines.find((p) => p.id === selectedPipelineId)?.name ??
+                    tBoard("selectPipelinePlaceholder")}
+                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="border-border bg-popover">
+                  {pipelines.map((p) => (
+                    <DropdownMenuItem
+                      key={p.id}
+                      onClick={() => setSelectedPipelineId(p.id)}
+                      className={p.id === selectedPipelineId ? "text-primary" : "text-popover-foreground"}
+                    >
+                      {p.name}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
+            {/* Configure kanban columns right here, without leaving the
+                Inbox — only meaningful when grouped by pipeline; status
+                columns are a fixed 3-value enum with nothing to edit. */}
+            <button
+              type="button"
+              onClick={() => setPipelineSettingsOpen(true)}
+              disabled={groupBy !== "pipeline" || pipelines.length === 0}
+              title={
+                groupBy === "pipeline"
+                  ? tBoard("configureStages")
+                  : tBoard("configureStagesDisabledHint")
+              }
+              className="inline-flex items-center justify-center rounded-lg border border-border bg-card p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+            >
+              <Settings className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
+      </div>
+
+      {(() => {
+        const selectedPipeline = pipelines.find((p) => p.id === selectedPipelineId);
+        if (!selectedPipeline) return null;
+        return (
+          <PipelineSettings
+            open={pipelineSettingsOpen}
+            onOpenChange={setPipelineSettingsOpen}
+            pipeline={selectedPipeline}
+            stages={pipelineStages}
+            onPipelinesChanged={refetchPipelines}
+            onStagesChanged={() => setStagesRefetchToken((n) => n + 1)}
+            onCreateNewPipeline={() => {
+              setPipelineSettingsOpen(false);
+              router.push("/pipelines");
+            }}
+          />
+        );
+      })()}
+
+      {viewMode === "kanban" ? (
+        <div className="flex-1 overflow-hidden p-3">
+          {groupBy === "pipeline" && pipelines.length === 0 ? (
+            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+              {tBoard("noPipelinesYet")}
+            </div>
+          ) : (
+            <ConversationBoard
+              columns={groupBy === "status" ? statusColumns : pipelineColumns}
+              conversationsByColumn={
+                groupBy === "status" ? conversationsByStatusColumn : conversationsByPipelineColumn
+              }
+              onSelect={handleBoardCardSelect}
+              onMove={handleBoardMove}
+              getDisabledHint={groupBy === "pipeline" ? getPipelineDragHint : undefined}
+              emptyColumnHint={tBoard("dropConversationHere")}
+              profiles={profiles}
+              onConversationChanged={handleConversationChanged}
+            />
+          )}
+        </div>
+      ) : (
       <div className="flex flex-1 overflow-hidden">
         {/* Left panel: Conversation list.
             Hidden on mobile when a conversation is selected so the
@@ -590,6 +1077,8 @@ function InboxPageInner() {
             conversations={conversations}
             onConversationsLoaded={handleConversationsLoaded}
             resyncToken={resyncToken}
+            profiles={profiles}
+            onConversationChanged={handleConversationChanged}
           />
         </div>
 
@@ -631,11 +1120,16 @@ function InboxPageInner() {
             On mobile it's always hidden (the `lg:block` below), so the
             toggle — which is itself desktop-only — never affects it. */}
         {contactPanelOpen && (
-          <div className="hidden lg:block">
-            <ContactSidebar contact={activeContact} />
+          <div className="hidden h-full lg:flex">
+            <ContactSidebar
+              contact={activeContact}
+              conversation={activeConversation}
+              onConversationDeleted={handleConversationDeleted}
+            />
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }

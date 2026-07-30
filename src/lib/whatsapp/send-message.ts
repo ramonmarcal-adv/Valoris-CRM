@@ -30,6 +30,12 @@ import {
   type MediaKind,
 } from '@/lib/whatsapp/meta-api';
 import {
+  sendEvolutionText,
+  sendEvolutionMedia,
+  type EvolutionMediaKind,
+} from '@/lib/whatsapp/evolution-api';
+import { resolveProviderConfig, ProviderNotConfiguredError } from '@/lib/whatsapp/resolve-provider-config';
+import {
   validateInteractivePayload,
   interactivePayloadPreviewText,
   type InteractiveMessagePayload,
@@ -230,55 +236,73 @@ export async function sendMessageToConversation(
   }
 
   const contact = conversation.contact;
-  if (!contact?.phone) {
-    throw new SendMessageError(
-      'bad_request',
-      'Contact phone number not found',
-      400
-    );
+  const isGroup = !!conversation.is_group;
+
+  // Group conversations send to the group's JID; 1:1 conversations send
+  // to the contact's phone (Meta-shaped validation only applies there —
+  // Evolution's group JIDs aren't E.164 numbers and shouldn't be run
+  // through sanitizePhoneForMeta/isValidE164 at all).
+  let sanitizedPhone = '';
+  if (isGroup) {
+    if (!contact?.group_jid) {
+      throw new SendMessageError(
+        'bad_request',
+        'Group conversation has no group JID on its contact row',
+        400
+      );
+    }
+  } else {
+    if (!contact?.phone) {
+      throw new SendMessageError(
+        'bad_request',
+        'Contact phone number not found',
+        400
+      );
+    }
+    sanitizedPhone = sanitizePhoneForMeta(contact.phone);
+    if (!isValidE164(sanitizedPhone)) {
+      throw new SendMessageError(
+        'bad_request',
+        'Invalid phone number format',
+        400
+      );
+    }
   }
 
-  const sanitizedPhone = sanitizePhoneForMeta(contact.phone);
-  if (!isValidE164(sanitizedPhone)) {
-    throw new SendMessageError(
-      'bad_request',
-      'Invalid phone number format',
-      400
-    );
+  // WhatsApp config, account-scoped. Groups always route to the
+  // account's Evolution config (Meta cannot do groups); 1:1 routes to
+  // whichever provider is marked primary. See resolve-provider-config.ts.
+  let provider: 'meta_cloud' | 'evolution';
+  let config: Awaited<ReturnType<typeof resolveProviderConfig>>['config'];
+  try {
+    ({ provider, config } = await resolveProviderConfig(db, accountId, isGroup));
+  } catch (err) {
+    if (err instanceof ProviderNotConfiguredError) {
+      throw new SendMessageError(err.code, err.message, err.status);
+    }
+    throw err;
   }
 
-  // WhatsApp config, account-scoped.
-  const { data: config, error: configError } = await db
-    .from('whatsapp_config')
-    .select('*')
-    .eq('account_id', accountId)
-    .single();
-
-  if (configError || !config) {
-    throw new SendMessageError(
-      'whatsapp_not_configured',
-      'WhatsApp not configured. Please set up your WhatsApp integration first.',
-      400
-    );
-  }
-
-  const accessToken = decrypt(config.access_token);
-
-  // Self-heal legacy CBC ciphertexts. Fire-and-forget; idempotent.
-  if (isLegacyFormat(config.access_token)) {
+  // Self-heal legacy CBC ciphertexts on whichever secret this provider
+  // uses. Fire-and-forget; idempotent.
+  const secretColumn = provider === 'evolution' ? 'api_key' : 'access_token';
+  const encryptedSecret = provider === 'evolution' ? config.api_key : config.access_token;
+  const decryptedSecret = decrypt(encryptedSecret!);
+  if (isLegacyFormat(encryptedSecret!)) {
     void db
       .from('whatsapp_config')
-      .update({ access_token: encrypt(accessToken) })
+      .update({ [secretColumn]: encrypt(decryptedSecret) })
       .eq('id', config.id)
       .then(({ error }: { error: { message: string } | null }) => {
         if (error) {
           console.warn(
-            '[send-message] access_token GCM upgrade failed:',
+            `[send-message] ${secretColumn} GCM upgrade failed:`,
             error.message
           );
         }
       });
   }
+  const accessToken = decryptedSecret;
 
   // Resolve the reply target to its Meta message_id. The parent must
   // belong to this same conversation — otherwise a caller could quote
@@ -329,12 +353,48 @@ export async function sendMessageToConversation(
     templateRow = data ?? null;
   }
 
-  const attempt = async (phone: string): Promise<string> => {
+  // Evolution has no equivalent to Meta's approved-template system or
+  // standardized interactive buttons/lists — reject explicitly rather
+  // than silently no-op-ing or falling through to a Meta-shaped call
+  // that would misbehave against Evolution's API.
+  if (provider === 'evolution' && (messageType === 'template' || messageType === 'interactive')) {
+    throw new SendMessageError(
+      'unsupported_for_provider',
+      `message_type "${messageType}" is not supported when sending via Evolution API.`,
+      400
+    );
+  }
+
+  const attempt = async (destination: string): Promise<string> => {
+    if (provider === 'evolution') {
+      if (isMediaKind) {
+        const result = await sendEvolutionMedia({
+          apiUrl: config.api_url!,
+          apiKey: accessToken,
+          instanceName: config.instance_name!,
+          to: destination,
+          kind: messageType as EvolutionMediaKind,
+          mediaUrl: mediaUrl!,
+          caption: contentText || undefined,
+          filename: filename || undefined,
+        });
+        return result.messageId;
+      }
+      const result = await sendEvolutionText({
+        apiUrl: config.api_url!,
+        apiKey: accessToken,
+        instanceName: config.instance_name!,
+        to: destination,
+        text: contentText!,
+        quotedMessageId: contextMessageId,
+      });
+      return result.messageId;
+    }
     if (messageType === 'template') {
       const result = await sendTemplateMessage({
-        phoneNumberId: config.phone_number_id,
+        phoneNumberId: config.phone_number_id!,
         accessToken,
-        to: phone,
+        to: destination,
         templateName: templateName!,
         language: templateLanguage || 'en_US',
         template: templateRow ?? undefined,
@@ -346,9 +406,9 @@ export async function sendMessageToConversation(
     }
     if (isMediaKind) {
       const result = await sendMediaMessage({
-        phoneNumberId: config.phone_number_id,
+        phoneNumberId: config.phone_number_id!,
         accessToken,
-        to: phone,
+        to: destination,
         kind: messageType as MediaKind,
         link: mediaUrl!,
         caption: contentText || undefined,
@@ -361,9 +421,9 @@ export async function sendMessageToConversation(
       const p = interactivePayload!;
       if (p.kind === 'buttons') {
         const result = await sendInteractiveButtons({
-          phoneNumberId: config.phone_number_id,
+          phoneNumberId: config.phone_number_id!,
           accessToken,
-          to: phone,
+          to: destination,
           bodyText: p.body,
           headerText: p.header || undefined,
           footerText: p.footer || undefined,
@@ -373,9 +433,9 @@ export async function sendMessageToConversation(
         return result.messageId;
       }
       const result = await sendInteractiveList({
-        phoneNumberId: config.phone_number_id,
+        phoneNumberId: config.phone_number_id!,
         accessToken,
-        to: phone,
+        to: destination,
         bodyText: p.body,
         buttonLabel: p.button_label,
         headerText: p.header || undefined,
@@ -386,58 +446,72 @@ export async function sendMessageToConversation(
       return result.messageId;
     }
     const result = await sendTextMessage({
-      phoneNumberId: config.phone_number_id,
+      phoneNumberId: config.phone_number_id!,
       accessToken,
-      to: phone,
+      to: destination,
       text: contentText!,
       contextMessageId,
     });
     return result.messageId;
   };
 
-  // Send via Meta — retry across phone-number variants if Meta rejects
-  // with "recipient not in allowed list"; persist a working variant
-  // back to the contact so the next send goes straight through.
   let waMessageId = '';
   let workingPhone = sanitizedPhone;
-  try {
-    const variants = phoneVariants(sanitizedPhone);
-    let lastError: unknown = null;
 
-    for (const variant of variants) {
-      try {
-        waMessageId = await attempt(variant);
-        workingPhone = variant;
-        lastError = null;
-        break;
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        if (!isRecipientNotAllowedError(message)) {
-          throw err;
+  if (provider === 'evolution') {
+    // No Meta-shaped "recipient not in allowed list" quirk to retry
+    // around, and no E.164 variant concept for a group JID — one shot.
+    const destination = isGroup ? contact.group_jid! : sanitizedPhone;
+    try {
+      waMessageId = await attempt(destination);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown Evolution API error';
+      console.error('[send-message] Evolution send failed:', message);
+      throw new SendMessageError('evolution_error', `Evolution API error: ${message}`, 502);
+    }
+  } else {
+    // Send via Meta — retry across phone-number variants if Meta rejects
+    // with "recipient not in allowed list"; persist a working variant
+    // back to the contact so the next send goes straight through.
+    try {
+      const variants = phoneVariants(sanitizedPhone);
+      let lastError: unknown = null;
+
+      for (const variant of variants) {
+        try {
+          waMessageId = await attempt(variant);
+          workingPhone = variant;
+          lastError = null;
+          break;
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          if (!isRecipientNotAllowedError(message)) {
+            throw err;
+          }
+          lastError = err;
+          console.warn(
+            `[send-message] variant "${variant}" rejected by Meta, trying next…`
+          );
         }
-        lastError = err;
-        console.warn(
-          `[send-message] variant "${variant}" rejected by Meta, trying next…`
-        );
       }
+
+      if (lastError) throw lastError;
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Unknown Meta API error';
+      console.error('[send-message] Meta send failed for all variants:', message);
+      throw new SendMessageError('meta_error', `Meta API error: ${message}`, 502);
     }
 
-    if (lastError) throw lastError;
-  } catch (err) {
-    const message =
-      err instanceof Error ? err.message : 'Unknown Meta API error';
-    console.error('[send-message] Meta send failed for all variants:', message);
-    throw new SendMessageError('meta_error', `Meta API error: ${message}`, 502);
-  }
-
-  if (workingPhone !== sanitizedPhone) {
-    console.log(
-      `[send-message] Auto-corrected contact phone: ${sanitizedPhone} → ${workingPhone}`
-    );
-    await db
-      .from('contacts')
-      .update({ phone: workingPhone })
-      .eq('id', contact.id);
+    if (workingPhone !== sanitizedPhone) {
+      console.log(
+        `[send-message] Auto-corrected contact phone: ${sanitizedPhone} → ${workingPhone}`
+      );
+      await db
+        .from('contacts')
+        .update({ phone: workingPhone })
+        .eq('id', contact.id);
+    }
   }
 
   // Persist the sent message. Field names MUST match the messages

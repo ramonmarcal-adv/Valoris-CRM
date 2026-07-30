@@ -48,11 +48,15 @@ export async function GET(
       )
     }
 
-    // Fetch and decrypt WhatsApp config
+    // Fetch and decrypt WhatsApp config. Media downloads are Meta-only
+    // (Evolution media arrives inline via webhook, no download-by-id
+    // step) — scoped so a sibling Evolution row (migration 048) doesn't
+    // make .single() throw.
     const { data: config, error: configError } = await supabase
       .from('whatsapp_config')
       .select('*')
       .eq('account_id', accountId)
+      .eq('api_type', 'meta_cloud')
       .single()
 
     if (configError || !config) {

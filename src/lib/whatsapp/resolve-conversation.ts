@@ -54,13 +54,16 @@ export async function resolveConversationByPhone(
   }
 
   // Fail fast (and create nothing) when the account has no WhatsApp
-  // connected — the same error the send would raise anyway.
-  const { data: config } = await db
+  // connected — the same error the send would raise anyway. Existence-
+  // only check, not `.maybeSingle()`: an account can now have up to two
+  // rows (one per provider, migration 048), and `.maybeSingle()` throws
+  // if more than one row matches.
+  const { data: configs } = await db
     .from('whatsapp_config')
     .select('id')
     .eq('account_id', accountId)
-    .maybeSingle();
-  if (!config) {
+    .limit(1);
+  if (!configs || configs.length === 0) {
     throw new SendMessageError(
       'whatsapp_not_configured',
       'WhatsApp not configured. Please set up your WhatsApp integration first.',

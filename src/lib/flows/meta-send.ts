@@ -82,10 +82,15 @@ export async function engineSendText(
     throw new Error(`contact phone invalid: ${contact.phone}`)
   }
 
+  // Interim: this module only ever speaks Meta — scoped so a sibling
+  // Evolution row (migration 048) doesn't make .single() throw. Full
+  // resolveProviderConfig() routing for this file is a later step (see
+  // Evolution API integration plan, step 8).
   const { data: config, error: configErr } = await db
     .from('whatsapp_config')
     .select('*')
     .eq('account_id', args.accountId)
+    .eq('api_type', 'meta_cloud')
     .single()
   if (configErr || !config) {
     throw new Error('WhatsApp not configured for this account')
@@ -192,10 +197,15 @@ export async function engineSendMedia(
     throw new Error(`contact phone invalid: ${contact.phone}`)
   }
 
+  // Interim: this module only ever speaks Meta — scoped so a sibling
+  // Evolution row (migration 048) doesn't make .single() throw. Full
+  // resolveProviderConfig() routing for this file is a later step (see
+  // Evolution API integration plan, step 8).
   const { data: config, error: configErr } = await db
     .from('whatsapp_config')
     .select('*')
     .eq('account_id', args.accountId)
+    .eq('api_type', 'meta_cloud')
     .single()
   if (configErr || !config) {
     throw new Error('WhatsApp not configured for this account')
@@ -344,10 +354,15 @@ async function sendInteractiveViaMeta(
     throw new Error(`contact phone invalid: ${contact.phone}`)
   }
 
+  // Interim: this module only ever speaks Meta — scoped so a sibling
+  // Evolution row (migration 048) doesn't make .single() throw. Full
+  // resolveProviderConfig() routing for this file is a later step (see
+  // Evolution API integration plan, step 8).
   const { data: config, error: configErr } = await db
     .from('whatsapp_config')
     .select('*')
     .eq('account_id', input.accountId)
+    .eq('api_type', 'meta_cloud')
     .single()
   if (configErr || !config) {
     throw new Error('WhatsApp not configured for this account')

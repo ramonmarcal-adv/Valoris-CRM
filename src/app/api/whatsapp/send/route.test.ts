@@ -43,13 +43,21 @@ function makeSupabaseMock() {
           // its contact); otherwise fall back to the canned existing row.
           return { data: createdConversation ?? existingConversation, error: null }
         case 'whatsapp_config':
+          // resolveProviderConfig's 1:1 path selects every row for the
+          // account (no .single()/.limit(), since an account can now
+          // have one Meta + one Evolution row — migration 048) and
+          // picks whichever is is_primary, falling back to rows[0].
           return {
-            data: {
-              id: 'cfg-1',
-              account_id: 'acct-1',
-              phone_number_id: 'PNID-1',
-              access_token: 'enc-token',
-            },
+            data: [
+              {
+                id: 'cfg-1',
+                account_id: 'acct-1',
+                api_type: 'meta_cloud',
+                is_primary: true,
+                phone_number_id: 'PNID-1',
+                access_token: 'enc-token',
+              },
+            ],
             error: null,
           }
         case 'message_templates':
