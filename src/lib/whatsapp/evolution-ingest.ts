@@ -549,7 +549,17 @@ export async function upsertEvolutionMessage(
       console.warn('[evolution-ingest] unresolvable 1:1 remoteJid, skipping:', remoteJid)
       return null
     }
-    contactOutcome = await findOrCreateContact(config, accountId, configOwnerUserId, phone, data.pushName || phone)
+    // pushName on a fromMe message is the account owner's OWN push name
+    // (WhatsApp/Baileys convention — often literally "Você"/"You"), not
+    // the customer's. resolveJidPhone above always resolves the chat
+    // partner's phone regardless of who sent this particular message,
+    // so blindly passing pushName here would overwrite a real customer
+    // name with the owner's own name the next time they reply from
+    // their phone. Pass '' instead: findOrCreateContact's existing-
+    // contact branch treats a falsy name as "leave it alone", and its
+    // creation branch already falls back to the phone number.
+    const nameCandidate = isOwnMessage ? '' : data.pushName || phone
+    contactOutcome = await findOrCreateContact(config, accountId, configOwnerUserId, phone, nameCandidate)
     if (!contactOutcome) return null
   }
 

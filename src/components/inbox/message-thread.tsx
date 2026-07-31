@@ -517,13 +517,42 @@ export function MessageThread({
       });
   }, [conversationId, hasUnread]);
 
-  // Auto-scroll to bottom on new messages
+  // Whether the user is scrolled near the bottom right now — read by the
+  // auto-scroll effect below so a realtime status update (message
+  // sent→delivered→read, which replaces the whole `messages` array
+  // reference without adding anything — see handleMessageEvent's UPDATE
+  // branch in inbox/page.tsx) doesn't yank the view back down while
+  // someone is reading older history further up.
+  const wasNearBottomRef = useRef(true);
   useEffect(() => {
-    if (scrollRef.current) {
-      const el = scrollRef.current;
+    const el = scrollRef.current;
+    if (!el) return;
+    const handleScroll = () => {
+      const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+      wasNearBottomRef.current = distanceFromBottom < 150;
+    };
+    el.addEventListener("scroll", handleScroll);
+    return () => el.removeEventListener("scroll", handleScroll);
+  }, [conversationId]);
+
+  // Auto-scroll to bottom — only when a message was actually appended
+  // (messages.length grew) and the user was already near the bottom, or
+  // when switching to a different conversation (always jump to the
+  // latest message there). Previously keyed off the whole `messages`
+  // array reference, which also changes on status-only updates and on
+  // every optimistic-send reconciliation, forcing the view to the
+  // bottom regardless of where the reader had scrolled to.
+  const messagesLength = messages.length;
+  const prevConversationIdForScrollRef = useRef(conversationId);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const conversationChanged = prevConversationIdForScrollRef.current !== conversationId;
+    prevConversationIdForScrollRef.current = conversationId;
+    if (conversationChanged || wasNearBottomRef.current) {
       el.scrollTop = el.scrollHeight;
     }
-  }, [messages]);
+  }, [messagesLength, conversationId]);
 
   const handleSend = useCallback(
     async (text: string, replyToId?: string) => {
