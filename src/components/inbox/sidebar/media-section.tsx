@@ -78,7 +78,7 @@ export function MediaSection({ conversation }: MediaSectionProps) {
           {photos.length === 0 ? (
             <EmptyState icon={ImageIcon} label={t("empty.photos")} />
           ) : (
-            <div className="grid grid-cols-3 gap-1.5">
+            <div className="grid grid-cols-4 gap-1.5">
               {photos.map((m) => (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img key={m.id} src={m.media_url!} alt="" className="aspect-square w-full rounded-md object-cover" />

@@ -315,6 +315,32 @@ export async function sendEvolutionMedia(args: SendEvolutionMediaArgs): Promise<
 }
 
 // ============================================================
+// Contacts
+// ============================================================
+
+/**
+ * POST /chat/fetchProfilePictureUrl/{instanceName} — confirmed against
+ * a real instance. Returns a direct, unencrypted, publicly-fetchable
+ * URL (unlike message media, which is protocol-encrypted — see
+ * getEvolutionMediaBase64 below) — usable straight in an `<img src>`.
+ * Returns null when the number has no profile picture, or it's not
+ * public (WhatsApp privacy settings); best-effort, not an error.
+ */
+export async function fetchEvolutionProfilePicture(
+  cfg: EvolutionInstanceConfig,
+  phone: string,
+): Promise<string | null> {
+  const response = await fetch(`${cfg.apiUrl}/chat/fetchProfilePictureUrl/${cfg.instanceName}`, {
+    method: 'POST',
+    headers: authHeaders(cfg.apiKey),
+    body: JSON.stringify({ number: phone }),
+  })
+  if (!response.ok) return null
+  const data = await response.json()
+  return data?.profilePictureUrl ?? null
+}
+
+// ============================================================
 // Groups (v1: read metadata + send into existing groups — does not
 // create groups or manage membership from this app)
 // ============================================================
@@ -337,6 +363,10 @@ export interface EvolutionGroupInfo {
   owner: string
   size?: number
   participants?: EvolutionGroupParticipant[]
+  /** Direct, unencrypted, publicly-fetchable URL — same convention as
+   *  fetchEvolutionProfilePicture — or null when the group has no
+   *  photo. Confirmed present on a real instance. */
+  pictureUrl?: string | null
 }
 
 /** GET /group/findGroupInfos/{instanceName}?groupJid=... — confirmed
@@ -419,4 +449,40 @@ export async function fetchEvolutionMessagesPage(
   }
   const data = await response.json()
   return data.messages
+}
+
+// ============================================================
+// Media download/decrypt
+// ============================================================
+
+export interface EvolutionMediaResult {
+  /** Raw decrypted bytes. */
+  buffer: Buffer
+  mimetype: string
+}
+
+/**
+ * POST /chat/getBase64FromMediaMessage/{instanceName} — confirmed
+ * against a real instance. WhatsApp media (image/video/audio/document)
+ * is protocol-encrypted at rest: the URL Evolution reports on the
+ * message itself (message.imageMessage.url etc., ending in `.enc`) is
+ * a `mmg.whatsapp.net` blob nothing can render directly. This endpoint
+ * returns the already-decrypted bytes, base64-encoded, given just the
+ * WhatsApp message id — used by the evolution-media proxy route
+ * instead of ever exposing the raw `.enc` URL to the browser.
+ */
+export async function getEvolutionMediaBase64(
+  cfg: EvolutionInstanceConfig,
+  messageId: string,
+): Promise<EvolutionMediaResult> {
+  const response = await fetch(`${cfg.apiUrl}/chat/getBase64FromMediaMessage/${cfg.instanceName}`, {
+    method: 'POST',
+    headers: authHeaders(cfg.apiKey),
+    body: JSON.stringify({ message: { key: { id: messageId } }, convertToMp4: false }),
+  })
+  if (!response.ok) {
+    await throwEvolutionError(response, `Evolution API error fetching media: ${response.status}`)
+  }
+  const data = await response.json()
+  return { buffer: Buffer.from(data.base64, 'base64'), mimetype: data.mimetype || 'application/octet-stream' }
 }

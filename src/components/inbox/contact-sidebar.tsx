@@ -108,7 +108,7 @@ export function ContactSidebar({ contact, conversation, onConversationDeleted }:
 
   if (!contact) {
     return (
-      <div className="flex h-full w-70 items-center justify-center border-l border-border bg-card">
+      <div className="flex h-full w-96 items-center justify-center border-l border-border bg-card">
         <p className="text-sm text-muted-foreground">{tThread("selectConversation")}</p>
       </div>
     );
@@ -118,7 +118,7 @@ export function ContactSidebar({ contact, conversation, onConversationDeleted }:
   const initials = displayName.charAt(0).toUpperCase();
 
   return (
-    <div className="flex h-full min-h-0 w-70 flex-col border-l border-border bg-card">
+    <div className="flex h-full min-h-0 w-96 flex-col border-l border-border bg-card">
       <ScrollArea className="min-h-0 flex-1">
         <div className="p-4">
           {/* Contact Info */}

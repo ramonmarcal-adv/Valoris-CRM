@@ -32,6 +32,11 @@ interface MessageBubbleProps {
    *  plain-text body with a <mark>-style highlight. Undefined/empty
    *  means no search is active. */
   highlightQuery?: string;
+  /** True when the parent conversation is a WhatsApp group — shows the
+   *  sender's name/avatar above customer-side bubbles, same as
+   *  WhatsApp's own group UI. Ignored for agent/bot bubbles (always
+   *  "us", never ambiguous). */
+  isGroup?: boolean;
 }
 
 /** Splits `text` on case-insensitive occurrences of `query`, wrapping each
@@ -89,7 +94,7 @@ function MediaImage({ url, alt }: { url: string; alt: string }) {
     if (!url) return;
 
     // Proxy URLs need auth fetch to create blob URL
-    if (url.startsWith("/api/whatsapp/media/")) {
+    if (url.startsWith("/api/whatsapp/media/") || url.startsWith("/api/whatsapp/evolution-media/")) {
       try {
         const res = await fetch(url);
         if (!res.ok) throw new Error("Failed to load media");
@@ -290,6 +295,52 @@ function MessageContent({
   }
 }
 
+/** Deterministic color for a group sender's name, keyed off their
+ *  contact id so the same person always gets the same color across
+ *  messages — same idea as WhatsApp's own group name coloring. Picked
+ *  from a small fixed palette rather than hashing to an arbitrary hue,
+ *  so every color is legible on both the light and dark bubble
+ *  background. */
+const GROUP_SENDER_COLORS = [
+  "text-emerald-400",
+  "text-sky-400",
+  "text-amber-400",
+  "text-fuchsia-400",
+  "text-rose-400",
+  "text-violet-400",
+  "text-teal-400",
+  "text-orange-400",
+];
+function groupSenderColor(key: string): string {
+  let hash = 0;
+  for (let i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+  return GROUP_SENDER_COLORS[hash % GROUP_SENDER_COLORS.length];
+}
+
+function GroupSenderLabel({
+  message,
+  t,
+}: {
+  message: Message;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const label = message.sender?.name || message.sender?.phone || t("groupSenderUnknown");
+  const colorClass = groupSenderColor(message.sender_id ?? "unknown");
+  return (
+    <div className="mb-0.5 flex items-center gap-1.5">
+      {message.sender?.avatar_url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={message.sender.avatar_url}
+          alt=""
+          className="size-4 shrink-0 rounded-full object-cover"
+        />
+      ) : null}
+      <span className={cn("text-xs font-medium", colorClass)}>{label}</span>
+    </div>
+  );
+}
+
 export function MessageBubble({
   message,
   reply,
@@ -297,11 +348,13 @@ export function MessageBubble({
   currentUserId,
   onToggleReaction,
   highlightQuery,
+  isGroup,
 }: MessageBubbleProps) {
   const t = useTranslations("Inbox.bubble");
 
   const isAgent = message.sender_type === "agent" || message.sender_type === "bot";
   const time = format(new Date(message.created_at), "HH:mm");
+  const showGroupSender = isGroup && !isAgent;
 
   // Row alignment + width cap are owned by <MessageActions> so its hover
   // group matches the bubble's content area, not the full row. The `id`
@@ -314,6 +367,7 @@ export function MessageBubble({
         isAgent ? "items-end" : "items-start",
       )}
     >
+      {showGroupSender && <GroupSenderLabel message={message} t={t} />}
       <div
         className={cn(
           "relative rounded-2xl px-3 py-2",

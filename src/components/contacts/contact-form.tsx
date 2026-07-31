@@ -150,15 +150,26 @@ export function ContactForm({
       let contactId = contact?.id;
 
       if (isEdit && contactId) {
+        const trimmedName = name.trim() || null;
+        const update: Record<string, unknown> = {
+          name: trimmedName,
+          phone: phone.trim(),
+          email: email.trim() || null,
+          company: company.trim() || null,
+          updated_at: new Date().toISOString(),
+        };
+        // Freeze this row against WhatsApp's own name auto-sync the
+        // moment a human actually changes the name here — otherwise the
+        // next inbound message (or a history re-sync) would silently
+        // overwrite the correction. Only flips on an actual change, not
+        // every save, so editing phone/email/company alone doesn't
+        // needlessly freeze a name nobody touched.
+        if (trimmedName !== (contact?.name ?? null)) {
+          update.name_source = 'manual';
+        }
         const { error } = await supabase
           .from('contacts')
-          .update({
-            name: name.trim() || null,
-            phone: phone.trim(),
-            email: email.trim() || null,
-            company: company.trim() || null,
-            updated_at: new Date().toISOString(),
-          })
+          .update(update)
           .eq('id', contactId);
         if (error) throw error;
       } else {

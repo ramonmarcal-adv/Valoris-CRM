@@ -86,6 +86,14 @@ function InboxPageInner() {
   const [whatsappConnected, setWhatsappConnected] = useState<boolean | null>(
     null
   );
+  // Which provider 1:1 sends currently route through — drives whether
+  // the 24h session-window rule (Meta-only, see message-thread.tsx) is
+  // shown/enforced at all. `null` until the fetch resolves; `undefined`
+  // is never passed in, MessageThread's own default only matters for
+  // callers that omit the prop entirely.
+  const [activeProvider, setActiveProvider] = useState<
+    "meta_cloud" | "evolution" | null
+  >(null);
   /**
    * Bumped whenever we want children (ConversationList, MessageThread)
    * to refetch from the DB — used as a safety net against missed
@@ -250,6 +258,20 @@ function InboxPageInner() {
     };
 
     checkConnection();
+  }, []);
+
+  // Fetch once on mount, same lifecycle as the connection check above —
+  // doesn't change per conversation, so no need to refetch on selection.
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/whatsapp/active-provider");
+        const data = await res.json();
+        setActiveProvider(data.provider ?? null);
+      } catch (err) {
+        console.error("[inbox] active-provider fetch failed:", err);
+      }
+    })();
   }, []);
 
   // Handle realtime message events
@@ -1112,6 +1134,7 @@ function InboxPageInner() {
             onRefresh={handleManualRefresh}
             contactPanelOpen={contactPanelOpen}
             onToggleContactPanel={handleToggleContactPanel}
+            activeProvider={activeProvider}
           />
         </div>
 

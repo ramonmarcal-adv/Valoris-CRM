@@ -115,6 +115,15 @@ interface MessageThreadProps {
    */
   contactPanelOpen?: boolean;
   onToggleContactPanel?: () => void;
+  /**
+   * Which WhatsApp provider 1:1 sends currently route through for this
+   * account (from GET /api/whatsapp/active-provider) — the 24-hour
+   * session-window rule is a Meta Cloud API / WhatsApp Business
+   * Platform policy specifically, meaningless once Evolution API is
+   * active. `undefined` while still loading defaults to "rule doesn't
+   * apply" (not expired) rather than risk a false block.
+   */
+  activeProvider?: 'meta_cloud' | 'evolution' | null;
 }
 
 function formatDateSeparator(
@@ -177,6 +186,7 @@ export function MessageThread({
   onRefresh,
   contactPanelOpen,
   onToggleContactPanel,
+  activeProvider,
 }: MessageThreadProps) {
   const t = useTranslations("Inbox.messageThread");
   const tTimer = useTranslations("Inbox.sessionTimer");
@@ -243,8 +253,19 @@ export function MessageThread({
     };
   }, []);
 
+  // The 24-hour customer-service-window rule is a Meta Cloud API /
+  // WhatsApp Business Platform policy specifically — it has no meaning
+  // once a conversation routes through Evolution API (unofficial,
+  // WhatsApp-Web-protocol based). Groups always route to Evolution
+  // (resolveProviderConfig's hard rule); 1:1 depends on which provider
+  // is currently is_primary for the account. `activeProvider` is
+  // `undefined` while still loading — default to "doesn't apply" so a
+  // slow fetch never falsely blocks the composer.
+  const sessionRuleApplies = !conversation?.is_group && activeProvider === "meta_cloud";
+
   // 24-hour session timer
   const sessionInfo = useMemo(() => {
+    if (!sessionRuleApplies) return { expired: false, remaining: "" };
     if (!messages.length) return { expired: false, remaining: "" };
 
     // Find last customer message
@@ -268,7 +289,7 @@ export function MessageThread({
         : tTimer("xmRemaining", { minutes: Math.floor(hoursLeft * 60) });
 
     return { expired, remaining };
-  }, [messages, tTimer]);
+  }, [messages, tTimer, sessionRuleApplies]);
 
   // Store latest callback in a ref so fetchMessages doesn't need to
   // depend on `onMessagesLoaded` — otherwise parent re-renders cause
@@ -298,9 +319,14 @@ export function MessageThread({
     (async () => {
       setLoading(true);
 
+      // `sender` embed resolves the group-participant contact
+      // (messages.sender_id, migration 049's FK) so group bubbles can
+      // show who actually sent each message — null for every 1:1
+      // message and for group messages whose participant JID couldn't
+      // be resolved (see evolution-ingest.ts's known @lid limitation).
       const { data, error } = await supabase
         .from("messages")
-        .select("*")
+        .select("*, sender:contacts!sender_id(id,name,avatar_url,phone)")
         .eq("conversation_id", conversationId)
         .order("created_at", { ascending: true });
 
@@ -309,7 +335,15 @@ export function MessageThread({
       if (error) {
         console.error("Failed to fetch messages:", error);
       } else {
-        onMessagesLoadedRef.current(data ?? []);
+        // Supabase's PostgREST client types a to-one embed as a
+        // possible array — normalize to a single object|null so
+        // downstream code (MessageBubble) doesn't need to know about
+        // this quirk.
+        const normalized = (data ?? []).map((row) => ({
+          ...row,
+          sender: Array.isArray(row.sender) ? (row.sender[0] ?? null) : row.sender,
+        }));
+        onMessagesLoadedRef.current(normalized);
       }
 
       if (!cancelled) setLoading(false);
@@ -1068,18 +1102,23 @@ export function MessageThread({
             <h2 className="truncate text-sm font-semibold text-foreground">{displayName}</h2>
             <p className="truncate text-xs text-muted-foreground">{contact.phone}</p>
           </div>
-          {/* Session timer badge — hidden on the narrowest phones so
-              the name + back arrow keep their room. */}
-          <Badge
-            variant="outline"
-            className={cn(
-              "ml-1 hidden gap-1 border-border text-[10px] sm:inline-flex sm:ml-2",
-              sessionInfo.expired ? "text-red-400" : "text-primary"
-            )}
-          >
-            <Clock className="h-3 w-3" />
-            {sessionInfo.remaining}
-          </Badge>
+          {/* Session timer badge — only meaningful on Meta Cloud API
+              1:1 conversations (see sessionRuleApplies above); hidden
+              entirely otherwise, not just left showing an empty state.
+              Also hidden on the narrowest phones so the name + back
+              arrow keep their room. */}
+          {sessionRuleApplies && (
+            <Badge
+              variant="outline"
+              className={cn(
+                "ml-1 hidden gap-1 border-border text-[10px] sm:inline-flex sm:ml-2",
+                sessionInfo.expired ? "text-red-400" : "text-primary"
+              )}
+            >
+              <Clock className="h-3 w-3" />
+              {sessionInfo.remaining}
+            </Badge>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -1363,6 +1402,7 @@ export function MessageThread({
                           currentUserId={user?.id}
                           onToggleReaction={handlePillToggle}
                           highlightQuery={searchOpen ? searchQuery : undefined}
+                          isGroup={conversation?.is_group}
                         />
                       </MessageActions>
                     );

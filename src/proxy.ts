@@ -77,9 +77,18 @@ export async function proxy(request: NextRequest) {
     return withRefreshedCookies(NextResponse.redirect(url))
   }
 
-  // API routes that need auth (not webhooks)
-  if (!user && request.nextUrl.pathname.startsWith('/api/whatsapp/') &&
-      !request.nextUrl.pathname.includes('/webhook')) {
+  // API routes that need auth (not webhooks). Inbound webhooks are called
+  // by the WhatsApp provider itself, never by a logged-in browser session,
+  // so they must be exempted explicitly by path rather than by a loose
+  // substring check — `.includes('/webhook')` silently stopped matching
+  // once a second provider's route was added as `evolution-webhook`
+  // (hyphenated, not nested under a `/webhook/` segment), which meant
+  // every real Evolution API callback was rejected here before it ever
+  // reached the route handler's own secret check.
+  const isWebhookPath =
+    request.nextUrl.pathname.startsWith('/api/whatsapp/webhook') ||
+    request.nextUrl.pathname.startsWith('/api/whatsapp/evolution-webhook')
+  if (!user && request.nextUrl.pathname.startsWith('/api/whatsapp/') && !isWebhookPath) {
     return withRefreshedCookies(
       NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     )

@@ -111,3 +111,35 @@ describe("proxy — refreshed auth cookies survive redirects", () => {
     expect(res.cookies.get(ROTATED.name)?.value).toBe(ROTATED.value);
   });
 });
+
+describe("proxy — inbound WhatsApp webhooks are never blocked, even with no session", () => {
+  it("does not 401 the Meta webhook path for an unauthenticated request", async () => {
+    mockUser = null;
+
+    const res = await proxy(
+      new NextRequest("https://app.test/api/whatsapp/webhook"),
+    );
+
+    expect(res.status).not.toBe(401);
+  });
+
+  it("does not 401 the Evolution webhook path for an unauthenticated request — regression for the hyphenated route name breaking the old substring check", async () => {
+    mockUser = null;
+
+    const res = await proxy(
+      new NextRequest("https://app.test/api/whatsapp/evolution-webhook/some-config-id?secret=x"),
+    );
+
+    expect(res.status).not.toBe(401);
+  });
+
+  it("still 401s other unauthenticated /api/whatsapp/* routes", async () => {
+    mockUser = null;
+
+    const res = await proxy(
+      new NextRequest("https://app.test/api/whatsapp/send"),
+    );
+
+    expect(res.status).toBe(401);
+  });
+});

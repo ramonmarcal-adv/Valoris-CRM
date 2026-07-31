@@ -259,7 +259,8 @@
       "interactiveReply": "[Interactive reply]",
       "unsupported": "[Unsupported message type]",
       "aiBadge": "AI",
-      "aiBadgeTitle": "Sent automatically by the AI assistant"
+      "aiBadgeTitle": "Sent automatically by the AI assistant",
+      "groupSenderUnknown": "Someone in the group"
     },
     "actions": {
       "reply": "Reply",

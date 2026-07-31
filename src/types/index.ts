@@ -127,6 +127,10 @@ export interface Contact {
   /** WhatsApp group JID, e.g. '120363123456789012@g.us'. Only set when
    *  is_group_placeholder is true. */
   group_jid?: string;
+  /** Whether `name` is still auto-synced from WhatsApp (pushName /
+   *  profile lookup) or was frozen by an explicit manual edit — see
+   *  migration 050. Defaults to 'whatsapp' for existing rows. */
+  name_source?: 'whatsapp' | 'manual';
 }
 
 export interface Tag {
@@ -260,6 +264,11 @@ export interface Message {
    *  NULL when an inbound participant JID couldn't be resolved to a
    *  contact (e.g. a Baileys @lid identity). */
   sender_id?: string;
+  /** Embedded contacts row for `sender_id`, when the fetch query joins
+   *  it (message-thread.tsx does) — the group participant who sent
+   *  this message. Undefined when the query didn't embed it; null when
+   *  `sender_id` itself is null. */
+  sender?: { id: string; name?: string; avatar_url?: string; phone: string } | null;
   content_type: ContentType;
   content_text?: string;
   media_url?: string;
