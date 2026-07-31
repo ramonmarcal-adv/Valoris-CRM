@@ -20,6 +20,7 @@ import { ReplyQuote } from "./reply-quote";
 import { MessageReactions } from "./message-reactions";
 import { InteractivePreview } from "@/components/interactive/interactive-preview";
 import { LinkPreviewCard } from "./link-preview-card";
+import { parseWhatsAppFormatting } from "@/lib/whatsapp/markdown";
 import { useTranslations } from "next-intl";
 
 interface MessageBubbleProps {
@@ -97,6 +98,37 @@ function splitTextWithLinks(text: string): Array<{ type: "text" | "link"; value:
   }
   if (lastIndex < text.length) parts.push({ type: "text", value: text.slice(lastIndex) });
   return parts;
+}
+
+/** Splits `text` on any resolved @mention placeholder (the raw
+ *  `@<digits>` Baileys embeds in a group message's text — see
+ *  Message.mentions' doc comment) so it can render as `@{name}` instead
+ *  of the raw digits, which are frequently an internal @lid number, not
+ *  the participant's actual phone. Longest digit-string first so one
+ *  mention's placeholder can't be shadowed by another that happens to
+ *  be a prefix of it. Falls back to the raw digits when a mention
+ *  resolved neither a name nor a phone (nothing usable to show). */
+function splitMentions(
+  text: string,
+  mentions: Message["mentions"],
+): Array<{ type: "text" | "mention"; value: string; label?: string; colorKey?: string }> {
+  if (!mentions || mentions.length === 0) return [{ type: "text", value: text }];
+  const entries = mentions
+    .map((m) => ({ digits: m.jid.split("@")[0], label: m.name || m.phone }))
+    .filter((e): e is { digits: string; label: string } => !!e.digits && !!e.label)
+    .sort((a, b) => b.digits.length - a.digits.length);
+  if (entries.length === 0) return [{ type: "text", value: text }];
+
+  const pattern = entries.map((e) => `@${e.digits}`).join("|");
+  const parts = text.split(new RegExp(`(${pattern})`, "g"));
+  return parts
+    .filter((part) => part !== "")
+    .map((part) => {
+      const match = entries.find((e) => part === `@${e.digits}`);
+      return match
+        ? { type: "mention" as const, value: part, label: match.label, colorKey: match.digits }
+        : { type: "text" as const, value: part };
+    });
 }
 
 function StatusIcon({ status }: { status: Message["status"] }) {
@@ -202,26 +234,69 @@ function MessageContent({
   switch (message.content_type) {
     case "text": {
       const text = message.content_text ?? "";
-      const parts = splitTextWithLinks(text);
+      const mentionParts = splitMentions(text, message.mentions);
       const firstUrl = extractFirstUrl(text);
       return (
         <div>
           <p className="whitespace-pre-wrap break-words text-sm">
-            {parts.map((part, i) =>
-              part.type === "link" ? (
-                <a
-                  key={i}
-                  href={part.value}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline underline-offset-2 hover:opacity-80"
-                >
-                  {part.value}
-                </a>
-              ) : (
-                <span key={i}>{highlightText(part.value, highlightQuery)}</span>
-              ),
-            )}
+            {mentionParts.map((mentionPart, i) => {
+              if (mentionPart.type === "mention") {
+                return (
+                  <span
+                    key={i}
+                    className={cn("font-medium", groupSenderColor(mentionPart.colorKey!))}
+                  >
+                    @{mentionPart.label}
+                  </span>
+                );
+              }
+              const formatSegments = parseWhatsAppFormatting(mentionPart.value);
+              return formatSegments.map((seg, j) => {
+                const key = `${i}-${j}`;
+                if (seg.type === "code") {
+                  return (
+                    <code
+                      key={key}
+                      className="rounded bg-black/10 px-1 font-mono text-[0.9em] dark:bg-white/15"
+                    >
+                      {seg.value}
+                    </code>
+                  );
+                }
+                // Links can still appear inside *bold*/_italic_/~strike~
+                // text, so run the same link-splitting on every segment's
+                // inner value, not just plain-text ones.
+                const rendered = splitTextWithLinks(seg.value).map((part, k) =>
+                  part.type === "link" ? (
+                    <a
+                      key={`${key}-${k}`}
+                      href={part.value}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline underline-offset-2 hover:opacity-80"
+                    >
+                      {part.value}
+                    </a>
+                  ) : (
+                    <span key={`${key}-${k}`}>{highlightText(part.value, highlightQuery)}</span>
+                  ),
+                );
+                switch (seg.type) {
+                  case "bold":
+                    return <strong key={key}>{rendered}</strong>;
+                  case "italic":
+                    return <em key={key}>{rendered}</em>;
+                  case "strike":
+                    return (
+                      <s key={key} className="opacity-70">
+                        {rendered}
+                      </s>
+                    );
+                  default:
+                    return <span key={key}>{rendered}</span>;
+                }
+              });
+            })}
           </p>
           {firstUrl && <LinkPreviewCard url={firstUrl} onDark={isAgent} />}
         </div>
@@ -266,9 +341,14 @@ function MessageContent({
 
     case "audio":
       return (
-        <div>
+        <div className="min-w-0">
           {message.media_url ? (
-            <audio src={message.media_url} controls className="max-w-60" />
+            // `min-w-0` is load-bearing here, not decorative: the native
+            // <audio> control has an intrinsic min-width Tailwind's
+            // max-w-60 alone doesn't clip, which was pushing the thread
+            // into a horizontal scrollbar it doesn't need — same class
+            // of bug already fixed once in reply-quote.tsx.
+            <audio src={message.media_url} controls className="w-60 max-w-full min-w-0" />
           ) : (
             <MediaUnavailable label={t("audio")} t={t} />
           )}
@@ -284,10 +364,10 @@ function MessageContent({
           href={message.media_url}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2 text-sm hover:bg-muted"
+          className="flex min-w-0 items-center gap-2 rounded-lg bg-muted/50 px-3 py-2 text-sm hover:bg-muted"
         >
           <FileText className="h-5 w-5 shrink-0 text-muted-foreground" />
-          <span className="truncate">
+          <span className="min-w-0 truncate">
             {message.content_text || t("document")}
           </span>
         </a>

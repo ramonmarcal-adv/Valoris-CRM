@@ -59,6 +59,10 @@ export interface ParsedEvolutionContent {
   contentText: string | null
   mediaUrl: string | null
   contentType: 'text' | 'image' | 'video' | 'document' | 'audio' | 'location'
+  /** Raw JIDs/lids `@mentioned` in this message's text (Baileys'
+   *  `contextInfo.mentionedJid`), before resolution to phone/name — null
+   *  for every non-text message and every text message with no mentions. */
+  mentionedJids: string[] | null
 }
 
 /**
@@ -85,16 +89,23 @@ export function parseEvolutionMessageContent(
   const mediaProxyUrl = () => `/api/whatsapp/evolution-media/${messageId}`
 
   if (message.conversation) {
-    return { contentText: message.conversation, mediaUrl: null, contentType: 'text' }
+    return { contentText: message.conversation, mediaUrl: null, contentType: 'text', mentionedJids: null }
   }
   if (message.extendedTextMessage?.text) {
-    return { contentText: message.extendedTextMessage.text, mediaUrl: null, contentType: 'text' }
+    const mentionedJid = message.extendedTextMessage.contextInfo?.mentionedJid
+    return {
+      contentText: message.extendedTextMessage.text,
+      mediaUrl: null,
+      contentType: 'text',
+      mentionedJids: mentionedJid && mentionedJid.length > 0 ? mentionedJid : null,
+    }
   }
   if (message.imageMessage) {
     return {
       contentText: message.imageMessage.caption ?? null,
       mediaUrl: message.imageMessage.url ? mediaProxyUrl() : null,
       contentType: 'image',
+      mentionedJids: null,
     }
   }
   if (message.videoMessage) {
@@ -102,6 +113,7 @@ export function parseEvolutionMessageContent(
       contentText: message.videoMessage.caption ?? null,
       mediaUrl: message.videoMessage.url ? mediaProxyUrl() : null,
       contentType: 'video',
+      mentionedJids: null,
     }
   }
   if (message.documentMessage) {
@@ -109,22 +121,33 @@ export function parseEvolutionMessageContent(
       contentText: message.documentMessage.caption ?? message.documentMessage.fileName ?? null,
       mediaUrl: message.documentMessage.url ? mediaProxyUrl() : null,
       contentType: 'document',
+      mentionedJids: null,
     }
   }
   if (message.audioMessage) {
-    return { contentText: null, mediaUrl: message.audioMessage.url ? mediaProxyUrl() : null, contentType: 'audio' }
+    return {
+      contentText: null,
+      mediaUrl: message.audioMessage.url ? mediaProxyUrl() : null,
+      contentType: 'audio',
+      mentionedJids: null,
+    }
   }
   if (message.stickerMessage) {
     // Stickers are images under the hood — same convention as the Meta
     // webhook (messages.content_type has no 'sticker' value).
-    return { contentText: null, mediaUrl: message.stickerMessage.url ? mediaProxyUrl() : null, contentType: 'image' }
+    return {
+      contentText: null,
+      mediaUrl: message.stickerMessage.url ? mediaProxyUrl() : null,
+      contentType: 'image',
+      mentionedJids: null,
+    }
   }
   if (message.locationMessage) {
     const loc = message.locationMessage
     const locationText = [loc.name, loc.address, [loc.degreesLatitude, loc.degreesLongitude].filter((n) => n != null).join(',')]
       .filter(Boolean)
       .join(' - ')
-    return { contentText: locationText || null, mediaUrl: null, contentType: 'location' }
+    return { contentText: locationText || null, mediaUrl: null, contentType: 'location', mentionedJids: null }
   }
   return null
 }
@@ -199,6 +222,34 @@ async function resolveGroupParticipant(
     cache?.set(groupJid, lidMap)
   }
   return lidMap.get(participantLid) ?? null
+}
+
+export interface ResolvedMention {
+  jid: string
+  phone: string | null
+  name: string | null
+}
+
+/**
+ * Resolve one `@mentioned` JID (from parseEvolutionMessageContent's
+ * `mentionedJids`) to a phone/name pair for display, reusing the same
+ * group-participant list lookup (and its cache) as sender attribution.
+ * Returns null when nothing resolves — an `@lid` mention whose
+ * participant isn't in the group's current list — so message-bubble.tsx
+ * can leave that one placeholder as raw text rather than showing a
+ * misleadingly-empty name.
+ */
+async function resolveMentionedParticipant(
+  config: ConfigRow,
+  groupJid: string,
+  mentionedJid: string,
+  cache?: LidParticipantCache,
+): Promise<ResolvedMention | null> {
+  const directPhone = resolveJidPhone(mentionedJid)
+  if (directPhone) return { jid: mentionedJid, phone: directPhone, name: null }
+  const resolved = await resolveGroupParticipant(config, groupJid, mentionedJid, cache)
+  if (!resolved) return null
+  return { jid: mentionedJid, phone: resolved.phone, name: resolved.name ?? null }
 }
 
 export interface ContactOutcome {
@@ -566,6 +617,21 @@ export async function upsertEvolutionMessage(
   const convResult = await findOrCreateConversation(accountId, configOwnerUserId, contactOutcome.contact.id)
   if (!convResult) return null
 
+  // Resolve @mentions (group-only — see ParsedEvolutionContent's doc
+  // comment) against the same participant list/cache used for sender
+  // attribution above, so a mention shows the real name instead of the
+  // raw @<digits> placeholder Baileys puts in the text.
+  let resolvedMentions: ResolvedMention[] | null = null
+  if (isGroup && parsed.mentionedJids?.length) {
+    const results = await Promise.all(
+      parsed.mentionedJids.map((jid) =>
+        resolveMentionedParticipant(config, remoteJid, jid, options?.lidCache),
+      ),
+    )
+    const resolved = results.filter((r): r is ResolvedMention => r !== null)
+    resolvedMentions = resolved.length > 0 ? resolved : null
+  }
+
   if (isGroup && (convResult.created || contactOutcome.wasCreated)) {
     await markConversationAsGroup(config, convResult.conversation.id, remoteJid)
   }
@@ -610,6 +676,9 @@ export async function upsertEvolutionMessage(
     // migration 049's column comment. Null on every 1:1 message and
     // on every agent-sent (isOwnMessage) message.
     sender_id: senderContactId,
+    // Resolved @mentions (migration 051) — null except on a group
+    // message whose text actually mentions someone.
+    mentions: resolvedMentions,
     content_type: parsed.contentType,
     content_text: parsed.contentText,
     media_url: parsed.mediaUrl,

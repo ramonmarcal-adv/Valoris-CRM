@@ -37,6 +37,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ContactPicker } from "../contact-picker";
 import type { Contact } from "@/types";
 
 interface GroupParticipant {
@@ -531,11 +532,24 @@ export function GroupInfoSection({ contact }: GroupInfoSectionProps) {
           <DialogHeader>
             <DialogTitle>{t("addParticipant")}</DialogTitle>
           </DialogHeader>
-          <Input
-            value={addPhone}
-            onChange={(e) => setAddPhone(e.target.value)}
-            placeholder={t("addParticipantPlaceholder")}
-          />
+          <div className="space-y-2">
+            <ContactPicker
+              onSelect={(c) => setAddPhone((c.phone_normalized || c.phone).replace(/\D/g, ""))}
+            />
+            <div className="flex items-center gap-2 text-[10px] uppercase tracking-wide text-muted-foreground">
+              <div className="h-px flex-1 bg-border" />
+              {t("orTypeNumber")}
+              <div className="h-px flex-1 bg-border" />
+            </div>
+            <Input
+              value={addPhone}
+              onChange={(e) => setAddPhone(e.target.value)}
+              placeholder={t("addParticipantPlaceholder")}
+            />
+            <p className="px-0.5 text-[11px] text-muted-foreground">
+              {t("addParticipantFormatHint")}
+            </p>
+          </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddOpen(false)}>
               {t("cancel")}

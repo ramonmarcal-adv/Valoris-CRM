@@ -228,3 +228,35 @@ html[data-theme="rose"] {
     @apply font-sans;
   }
 }
+
+/* ============================================================
+   Minimalist scrollbar — a thin, track-less thumb that's invisible
+   at rest and fades in on hover, instead of the OS's default "brute"
+   scrollbar. Applied to native `overflow-y-auto` panels (the message
+   thread, a few dropdown/list panels) that can't use the ScrollArea
+   component because their scroll position is tracked imperatively
+   (scrollTop/scrollHeight, a native `scroll` listener) via a plain
+   DOM ref — ScrollArea doesn't expose its Viewport ref for that.
+   ============================================================ */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+.scrollbar-thin:hover {
+  scrollbar-color: var(--border) transparent;
+}
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 9999px;
+  transition: background-color 150ms ease;
+}
+.scrollbar-thin:hover::-webkit-scrollbar-thumb {
+  background: var(--border);
+}

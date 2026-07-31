@@ -82,7 +82,7 @@ export function ScheduledMessagesPanel() {
         <div className="border-b border-border px-3 py-2">
           <p className="text-sm font-medium text-foreground">{t("title")}</p>
         </div>
-        <div className="max-h-80 overflow-y-auto p-2">
+        <div className="scrollbar-thin max-h-80 overflow-y-auto p-2">
           {loading ? (
             <div className="flex items-center justify-center py-8">
               <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />

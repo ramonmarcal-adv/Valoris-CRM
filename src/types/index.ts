@@ -269,6 +269,14 @@ export interface Message {
    *  this message. Undefined when the query didn't embed it; null when
    *  `sender_id` itself is null. */
   sender?: { id: string; name?: string; avatar_url?: string; phone: string } | null;
+  /** Resolved @mentions for a group text message (migration 051) —
+   *  `jid` is the raw Baileys JID/lid that was mentioned; `phone`/`name`
+   *  are best-effort resolutions against the group's participant list
+   *  (either can be null if the participant couldn't be resolved).
+   *  Used to replace the raw `@<digits>` placeholder in `content_text`
+   *  with a real name. Absent/null on every 1:1 message and on group
+   *  messages that don't mention anyone. */
+  mentions?: { jid: string; phone: string | null; name: string | null }[] | null;
   content_type: ContentType;
   content_text?: string;
   media_url?: string;

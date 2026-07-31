@@ -35,6 +35,10 @@ interface Profile {
   beta_features: string[];
   account_id: string | null;
   account_role: AccountRole | null;
+  /** "Assinar mensagens com meu nome" (migration 052) — global default
+   *  for the per-conversation signature toggle in message-composer.tsx.
+   *  Defaults to false so nothing changes until someone opts in. */
+  signature_enabled?: boolean;
 }
 
 interface AccountSummary {
@@ -43,6 +47,11 @@ interface AccountSummary {
   /** Default deal currency (ISO-4217). NOT NULL DEFAULT 'USD' in the
    *  DB (migration 021); narrowed to DEFAULT_CURRENCY when absent. */
   default_currency: string;
+  /** Custom app name/logo for the sidebar (migration 053, Settings →
+   *  Branding). Both null until an admin sets them — callers fall back
+   *  to the built-in "Valoris CRM" name and default mark. */
+  branding_name: string | null;
+  branding_logo_url: string | null;
 }
 
 interface AuthContextValue {
@@ -138,7 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data, error } = await supabase
         .from("profiles")
         .select(
-          "id, full_name, email, avatar_url, role, beta_features, account_id, account_role",
+          "id, full_name, email, avatar_url, role, beta_features, account_id, account_role, signature_enabled",
         )
         .eq("user_id", userId)
         .maybeSingle();
@@ -171,7 +180,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .from("accounts")
             // default_currency added in migration 021; narrowed to the
             // USD fallback below for older schemas where it reads null.
-            .select("id, name, default_currency")
+            // branding_name/branding_logo_url added in migration 053.
+            .select("id, name, default_currency, branding_name, branding_logo_url")
             .eq("id", data.account_id)
             .maybeSingle();
           if (accountErr) {
@@ -186,6 +196,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               id: account.id,
               name: account.name,
               default_currency: account.default_currency ?? DEFAULT_CURRENCY,
+              branding_name: account.branding_name ?? null,
+              branding_logo_url: account.branding_logo_url ?? null,
             };
           }
         }
@@ -212,6 +224,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           beta_features: data.beta_features ?? [],
           account_id: data.account_id ?? null,
           account_role: accountRole,
+          signature_enabled: data.signature_enabled ?? false,
         });
         setAccount(accountRow);
       } else {

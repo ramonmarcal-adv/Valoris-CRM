@@ -67,7 +67,17 @@ export interface EvolutionMessageKey {
 
 export interface EvolutionMessageContent {
   conversation?: string
-  extendedTextMessage?: { text?: string }
+  extendedTextMessage?: {
+    text?: string
+    /** VERIFY AGAINST A REAL INSTANCE: Baileys' usual shape for
+     *  @mentions in a message (each entry a JID/lid, e.g.
+     *  `"1234567890@lid"` or `"5511999999999@s.whatsapp.net"`) — not
+     *  smoke-tested against a real Evolution payload yet. The message
+     *  text itself carries a raw `@<digits>` placeholder per mentioned
+     *  participant; evolution-ingest.ts resolves these against the
+     *  group's participant list the same way it resolves @lid senders. */
+    contextInfo?: { mentionedJid?: string[] }
+  }
   imageMessage?: { caption?: string; mimetype?: string; url?: string }
   videoMessage?: { caption?: string; mimetype?: string; url?: string }
   documentMessage?: {

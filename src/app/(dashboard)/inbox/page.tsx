@@ -420,19 +420,43 @@ function InboxPageInner() {
    * strict-mode's dev-only effect double-fire doesn't read as a
    * reconnect.
    */
+  // Ambient resync triggers (reconnect, visibility) are debounced through
+  // this ref rather than calling `setResyncToken` directly — a flaky
+  // connection or someone alt-tabbing repeatedly could otherwise fire a
+  // burst of bumps in quick succession, each one re-rendering the
+  // conversation list (reorder by last_message_at) and the open thread
+  // at the same time, which reads as the UI randomly jumping away from
+  // whatever the agent was looking at. Coalescing bursts into one bump
+  // ~1.2s after the last trigger keeps the same catch-up behavior
+  // without the visible churn. The manual refresh button bypasses this —
+  // an explicit click should resync immediately, not after a delay.
+  const resyncDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const bumpResyncTokenDebounced = useCallback(() => {
+    if (resyncDebounceRef.current) clearTimeout(resyncDebounceRef.current);
+    resyncDebounceRef.current = setTimeout(() => {
+      resyncDebounceRef.current = null;
+      setResyncToken((n) => n + 1);
+    }, 1200);
+  }, []);
+  useEffect(() => {
+    return () => {
+      if (resyncDebounceRef.current) clearTimeout(resyncDebounceRef.current);
+    };
+  }, []);
+
   const wasConnectedRef = useRef(false);
   const initialConnectDoneRef = useRef(false);
   useEffect(() => {
     if (isConnected && !wasConnectedRef.current) {
       // false → true transition
       if (initialConnectDoneRef.current) {
-        setResyncToken((n) => n + 1);
+        bumpResyncTokenDebounced();
       } else {
         initialConnectDoneRef.current = true;
       }
     }
     wasConnectedRef.current = isConnected;
-  }, [isConnected]);
+  }, [isConnected, bumpResyncTokenDebounced]);
 
   /**
    * Refetch when the tab regains focus. Background tabs may have their
@@ -443,14 +467,14 @@ function InboxPageInner() {
   useEffect(() => {
     const onVisibility = () => {
       if (document.visibilityState === "visible") {
-        setResyncToken((n) => n + 1);
+        bumpResyncTokenDebounced();
       }
     };
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, []);
+  }, [bumpResyncTokenDebounced]);
 
   /**
    * Manual refresh trigger for the thread-header refresh button.

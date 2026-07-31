@@ -23,6 +23,7 @@ import {
   MessageSquareDashed,
   Zap,
   Clock,
+  PenLine,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GatedButton } from "@/components/ui/gated-button";
@@ -126,6 +127,12 @@ interface MessageComposerProps {
    *  haven't wired it up yet still compile; the clock button only
    *  renders when this is provided. */
   onSchedule?: (text: string, scheduledAtIso: string, replyToId?: string) => void;
+  /** "Assinar mensagens com meu nome" — per-conversation toggle owned by
+   *  the parent thread (message-thread.tsx), which also does the actual
+   *  text injection on send. Optional so existing callers still compile;
+   *  the toggle button only renders when both are provided. */
+  signatureEnabled?: boolean;
+  onToggleSignature?: () => void;
 }
 
 function formatDuration(seconds: number): string {
@@ -149,6 +156,8 @@ export function MessageComposer({
   replyTo,
   onClearReply,
   onSchedule,
+  signatureEnabled,
+  onToggleSignature,
 }: MessageComposerProps) {
   const t = useTranslations("Inbox.composer");
 
@@ -687,10 +696,6 @@ export function MessageComposer({
                 <FileText className="mr-2 h-4 w-4" />
                 {t("document")}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => void startRecording()}>
-                <Mic className="mr-2 h-4 w-4" />
-                {t("voiceNote")}
-              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -751,6 +756,22 @@ export function MessageComposer({
             )}
           </GatedButton>
 
+          {onToggleSignature && (
+            <button
+              type="button"
+              disabled={inputsDisabled}
+              onClick={onToggleSignature}
+              aria-pressed={signatureEnabled}
+              title={signatureEnabled ? t("signatureOnTitle") : t("signatureOffTitle")}
+              className={cn(
+                "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50",
+                signatureEnabled ? "text-primary" : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <PenLine className="h-4 w-4" />
+            </button>
+          )}
+
           <textarea
             ref={textareaRef}
             value={text}
@@ -805,16 +826,34 @@ export function MessageComposer({
             </Popover>
           )}
 
-          <GatedButton
-            size="sm"
-            canAct={!readOnly}
-            gateReason="send messages"
-            disabled={!text.trim() || sessionExpired || sending}
-            onClick={handleSend}
-            className="h-9 w-9 shrink-0 bg-primary p-0 hover:bg-primary/90 disabled:opacity-40"
-          >
-            <Send className="h-4 w-4" />
-          </GatedButton>
+          {text.trim() ? (
+            <GatedButton
+              size="sm"
+              canAct={!readOnly}
+              gateReason="send messages"
+              disabled={sessionExpired || sending}
+              onClick={handleSend}
+              className="h-9 w-9 shrink-0 bg-primary p-0 hover:bg-primary/90 disabled:opacity-40"
+            >
+              <Send className="h-4 w-4" />
+            </GatedButton>
+          ) : (
+            // Dedicated voice-note button — same WhatsApp/Telegram
+            // convention as the Send button it replaces while the field
+            // is empty: one tap starts recording immediately, instead of
+            // going through the attach menu.
+            <GatedButton
+              size="sm"
+              canAct={!readOnly}
+              gateReason="send messages"
+              disabled={inputsDisabled || busy}
+              title={readOnly ? undefined : t("voiceNote")}
+              onClick={() => void startRecording()}
+              className="h-9 w-9 shrink-0 bg-primary p-0 hover:bg-primary/90 disabled:opacity-40"
+            >
+              <Mic className="h-4 w-4" />
+            </GatedButton>
+          )}
         </div>
       )}
 
@@ -833,7 +872,7 @@ export function MessageComposer({
           <DialogHeader>
             <DialogTitle>{t("interactiveMessage")}</DialogTitle>
           </DialogHeader>
-          <div className="max-h-[70vh] overflow-y-auto">
+          <div className="scrollbar-thin max-h-[70vh] overflow-y-auto">
             <InteractiveBuilder
               value={interactivePayload}
               onChange={setInteractivePayload}

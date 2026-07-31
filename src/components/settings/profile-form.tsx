@@ -15,6 +15,7 @@ import {
   AvatarImage,
 } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
 import { useTranslations } from 'next-intl';
 import { SettingsPanelHead } from './settings-panel-head';
 
@@ -44,12 +45,14 @@ export function ProfileForm() {
   const [removeAvatar, setRemoveAvatar] = useState(false);
   const [saving, setSaving] = useState(false);
   const [emailChangePending, setEmailChangePending] = useState(false);
+  const [signatureEnabled, setSignatureEnabled] = useState(false);
 
   // Seed form state once the profile loads.
   useEffect(() => {
     if (!profile) return;
     setFullName(profile.full_name ?? '');
     setEmail(profile.email ?? '');
+    setSignatureEnabled(profile.signature_enabled ?? false);
   }, [profile]);
 
   // Cleanup object URLs to avoid leaks.
@@ -145,6 +148,7 @@ export function ProfileForm() {
         .update({
           full_name: trimmedName,
           avatar_url: nextAvatarUrl,
+          signature_enabled: signatureEnabled,
         })
         .eq('user_id', user.id);
       if (updateError) {
@@ -196,7 +200,8 @@ export function ProfileForm() {
     (fullName.trim() !== (profile.full_name ?? '') ||
       email.trim().toLowerCase() !== (profile.email ?? '').toLowerCase() ||
       pendingAvatar !== null ||
-      removeAvatar);
+      removeAvatar ||
+      signatureEnabled !== (profile.signature_enabled ?? false));
 
   const joined = user?.created_at
     ? new Date(user.created_at).toLocaleDateString(undefined, {
@@ -302,6 +307,23 @@ export function ProfileForm() {
                 </span>
               </p>
             )}
+          </div>
+
+          {/* Message signature */}
+          <div className="flex items-start justify-between gap-4 rounded-lg border border-border p-4">
+            <div>
+              <p className="text-sm font-medium text-foreground">
+                {t('signatureTitle')}
+              </p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {t('signatureDescription')}
+              </p>
+            </div>
+            <Switch
+              checked={signatureEnabled}
+              onCheckedChange={setSignatureEnabled}
+              disabled={saving}
+            />
           </div>
 
           {/* Read-only block */}

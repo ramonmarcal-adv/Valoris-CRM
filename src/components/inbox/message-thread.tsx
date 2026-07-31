@@ -193,10 +193,19 @@ export function MessageThread({
   const dateLocale = useDateFnsLocale();
   const tQuote = useTranslations("Inbox.replyQuote");
 
-  const { user, accountId } = useAuth();
+  const { user, accountId, profile } = useAuth();
   const { getPresence, getRow, now } = usePresence();
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Per-conversation "sign with my name" toggle (composer icon-button) —
+  // resets to the agent's global default (Settings → Profile) whenever
+  // the open conversation changes or that default itself loads/changes,
+  // but the agent can still flip it just for this thread without
+  // touching their global preference.
+  const [signatureEnabled, setSignatureEnabled] = useState(false);
+  useEffect(() => {
+    setSignatureEnabled(profile?.signature_enabled ?? false);
+  }, [conversation?.id, profile?.signature_enabled]);
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [reactions, setReactions] = useState<MessageReaction[]>([]);
@@ -310,14 +319,27 @@ export function MessageThread({
   // separate from the unread-reset effect so that incoming messages
   // arriving while the thread is open don't trigger a full refetch —
   // they only flip hasUnread, which only the reset effect listens to.
+  const prevConversationIdForFetchRef = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (!conversationId) return;
 
     const supabase = createClient();
     let cancelled = false;
 
+    // Only show the spinner when actually switching to a different
+    // conversation. A `resyncToken`-only re-run (WS reconnect / tab
+    // regaining focus, often with nothing new to fetch) previously set
+    // `loading=true` unconditionally, unmounting the message list and
+    // collapsing `scrollHeight` — the browser then clamps `scrollTop` to
+    // 0, which reads as "the thread jumped to the oldest messages" even
+    // though nothing about the conversation changed. Mirrors
+    // conversation-list.tsx's own convention of never re-arming its
+    // `loading` state on a resync-only refetch.
+    const isNewConversation = prevConversationIdForFetchRef.current !== conversationId;
+    prevConversationIdForFetchRef.current = conversationId;
+
     (async () => {
-      setLoading(true);
+      if (isNewConversation) setLoading(true);
 
       // `sender` embed resolves the group-participant contact
       // (messages.sender_id, migration 049's FK) so group bubbles can
@@ -558,6 +580,15 @@ export function MessageThread({
     async (text: string, replyToId?: string) => {
       if (!conversation) return;
 
+      // Append "- {name}" when the per-conversation signature toggle is
+      // on (defaults from the agent's global Settings → Profile choice —
+      // see the effect above). Done here, not in the composer, so the
+      // optimistic bubble and the actual sent text always match.
+      const finalText =
+        signatureEnabled && profile?.full_name
+          ? `${text}\n\n- ${profile.full_name}`
+          : text;
+
       const tempId = `temp-${Date.now()}`;
 
       // Optimistic update — shows the message immediately with "sending" status
@@ -566,7 +597,7 @@ export function MessageThread({
         conversation_id: conversation.id,
         sender_type: "agent",
         content_type: "text",
-        content_text: text,
+        content_text: finalText,
         status: "sending",
         created_at: new Date().toISOString(),
         reply_to_message_id: replyToId,
@@ -581,7 +612,7 @@ export function MessageThread({
           body: JSON.stringify({
             conversation_id: conversation.id,
             message_type: "text",
-            content_text: text,
+            content_text: finalText,
             reply_to_message_id: replyToId,
           }),
         });
@@ -608,7 +639,7 @@ export function MessageThread({
         onUpdateMessage(tempId, { status: "failed" });
       }
     },
-    [conversation, onNewMessage, onUpdateMessage]
+    [conversation, onNewMessage, onUpdateMessage, signatureEnabled, profile?.full_name]
   );
 
   const handleScheduleMessage = useCallback(
@@ -1364,7 +1395,7 @@ export function MessageThread({
       )}
 
       {/* Messages Area */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4">
+      <div ref={scrollRef} className="scrollbar-thin flex-1 overflow-y-auto px-4 py-4">
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -1470,6 +1501,8 @@ export function MessageThread({
         onSchedule={handleScheduleMessage}
         replyTo={replyTo}
         onClearReply={() => setReplyTo(null)}
+        signatureEnabled={signatureEnabled}
+        onToggleSignature={() => setSignatureEnabled((v) => !v)}
       />
 
       <TemplatePicker
