@@ -566,12 +566,20 @@ export async function upsertEvolutionMessage(
   // safely, and guards against Evolution redelivering the same event.
   const { data: existingMsg } = await supabaseAdmin()
     .from('messages')
-    .select('id')
+    .select('id, sender_id')
     .eq('conversation_id', convResult.conversation.id)
     .eq('message_id', data.key.id)
     .maybeSingle()
 
   if (existingMsg) {
+    // Self-heal: a group message imported before @lid participant
+    // resolution existed has sender_id stuck null forever otherwise —
+    // a re-run of "Importar histórico" only reaches this far because
+    // the message already exists, so backfill it in place rather than
+    // silently no-op-ing like a true duplicate.
+    if (isGroup && !existingMsg.sender_id && senderContactId) {
+      await supabaseAdmin().from('messages').update({ sender_id: senderContactId }).eq('id', existingMsg.id)
+    }
     return {
       contact: contactOutcome.contact,
       contactWasCreated: contactOutcome.wasCreated,
