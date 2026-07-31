@@ -1700,7 +1700,14 @@
         "aboutTitle": "Evolution API 정보",
         "aboutBody1": "Evolution API는 WhatsApp Web과 동일한 프로토콜을 기반으로 구축된 자체 호스팅 오픈소스 WhatsApp 커넥터입니다. 이 앱이 WhatsApp 그룹에서 메시지를 주고받을 수 있는 유일한 방법입니다.",
         "aboutBody2": "서버 자체(Docker, 데이터베이스, Redis)는 이 앱이 프로비저닝하거나 운영하지 않는 별도의 인프라입니다 — HTTP를 통해서만 통신합니다.",
-        "evolutionDocs": "Evolution API 문서"
+        "evolutionDocs": "Evolution API 문서",
+        "syncTitle": "기록 가져오기",
+        "syncDesc": "이 WhatsApp 번호에 이미 있는 대화, 그룹, 메시지를 받은편지함으로 가져옵니다. 이미 가져온 메시지는 건너뛰므로 여러 번 실행해도 안전합니다.",
+        "syncButton": "기록 가져오기",
+        "syncing": "가져오는 중...",
+        "syncProgress": "{total}개 중 {processed}개 메시지 가져옴",
+        "syncSuccess": "기록 가져오기가 완료되었습니다.",
+        "syncError": "기록을 가져오지 못했습니다"
       }
     },
     "sections": {

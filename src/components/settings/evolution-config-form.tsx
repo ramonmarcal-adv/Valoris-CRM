@@ -72,6 +72,10 @@ export function EvolutionConfigForm() {
   const [polling, setPolling] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
+  const [syncing, setSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState<{ processed: number; total: number } | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
+
   const loadedAccountIdRef = useRef<string | null>(null);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollDeadlineRef = useRef<number>(0);
@@ -301,6 +305,48 @@ export function EvolutionConfigForm() {
     }
   }
 
+  async function handleSyncHistory() {
+    setSyncing(true);
+    setSyncError(null);
+    setSyncProgress(null);
+    try {
+      const groupsRes = await fetch('/api/whatsapp/evolution-config/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phase: 'groups' }),
+      });
+      const groupsData = await groupsRes.json();
+      if (!groupsRes.ok) throw new Error(groupsData.error || t('syncError'));
+
+      let page = 1;
+      let done = false;
+      let processed = 0;
+      let total = 0;
+      while (!done) {
+        const res = await fetch('/api/whatsapp/evolution-config/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phase: 'messages', page }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || t('syncError'));
+        total = data.total;
+        processed += data.processed;
+        setSyncProgress({ processed, total });
+        done = data.done;
+        page = data.page + 1;
+      }
+      toast.success(t('syncSuccess'));
+    } catch (err) {
+      console.error('[EvolutionConfigForm] sync error:', err);
+      const message = err instanceof Error ? err.message : t('syncError');
+      setSyncError(message);
+      toast.error(message);
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -448,6 +494,68 @@ export function EvolutionConfigForm() {
                   aria-label={t('usePrimary')}
                 />
               </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* History import — only useful once actually connected. Safe
+            to click more than once: the sync route skips messages
+            already imported (see upsertEvolutionMessage's dedupe). */}
+        {configured && connected && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-foreground">{t('syncTitle')}</CardTitle>
+              <CardDescription className="text-muted-foreground">
+                {t('syncDesc')}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {syncError && (
+                <Alert className="bg-red-950/40 border-red-600/40">
+                  <div className="flex items-start gap-3">
+                    <XCircle className="size-5 text-red-400 mt-0.5 shrink-0" />
+                    <div className="flex-1">
+                      <AlertTitle className="text-red-200 mb-1">{t('syncError')}</AlertTitle>
+                      <AlertDescription className="text-red-100/80 text-sm">
+                        {syncError}
+                      </AlertDescription>
+                    </div>
+                  </div>
+                </Alert>
+              )}
+              {syncProgress && (
+                <div className="space-y-1.5">
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full bg-primary transition-all"
+                      style={{
+                        width: `${syncProgress.total > 0 ? Math.min(100, (syncProgress.processed / syncProgress.total) * 100) : 0}%`,
+                      }}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {t('syncProgress', { processed: syncProgress.processed, total: syncProgress.total })}
+                  </p>
+                </div>
+              )}
+              <Button
+                variant="outline"
+                onClick={handleSyncHistory}
+                disabled={syncing}
+                className="border-border text-muted-foreground hover:text-foreground hover:bg-muted"
+              >
+                {syncing ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    {t('syncing')}
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="size-4" />
+                    {t('syncButton')}
+                  </>
+                )}
+              </Button>
             </CardContent>
           </Card>
         )}

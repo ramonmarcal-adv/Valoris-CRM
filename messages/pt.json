@@ -1700,7 +1700,14 @@
         "aboutTitle": "Sobre a Evolution API",
         "aboutBody1": "A Evolution API é um conector de WhatsApp auto-hospedado e de código aberto, construído sobre o mesmo protocolo do WhatsApp Web. É a única forma deste app enviar e receber mensagens em grupos do WhatsApp.",
         "aboutBody2": "O servidor em si (Docker, banco de dados, Redis) é uma infraestrutura separada que este app não provisiona nem opera — ele só se comunica com ela via HTTP.",
-        "evolutionDocs": "Documentação da Evolution API"
+        "evolutionDocs": "Documentação da Evolution API",
+        "syncTitle": "Importar histórico",
+        "syncDesc": "Traz as conversas, grupos e mensagens já existentes desse número de WhatsApp pro inbox. Pode rodar mais de uma vez sem problema — mensagens já importadas são puladas.",
+        "syncButton": "Importar histórico",
+        "syncing": "Importando...",
+        "syncProgress": "{processed} de {total} mensagens importadas",
+        "syncSuccess": "Importação de histórico concluída.",
+        "syncError": "Falha ao importar histórico"
       }
     },
     "sections": {

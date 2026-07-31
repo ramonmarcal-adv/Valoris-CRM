@@ -34,6 +34,65 @@ export interface EvolutionSendResult {
   messageId: string
 }
 
+// ============================================================
+// Baileys-shaped message wire format — shared by the inbound webhook
+// payload and the /chat/findMessages history response (same shape both
+// places, confirmed against a real Evolution API v2.3.7 instance).
+// Lives here (not in evolution-ingest.ts) so this file, the raw HTTP
+// client layer, is the single owner of "what Evolution sends over the
+// wire"; evolution-ingest.ts imports these rather than redefining them.
+// ============================================================
+
+export interface EvolutionMessageKey {
+  remoteJid: string
+  fromMe: boolean
+  id: string
+  /** Only present on group messages — the actual sender within the
+   *  group, in whichever addressing mode WhatsApp used for this chat
+   *  (see remoteJidAlt/participantAlt below). */
+  participant?: string
+  /**
+   * WhatsApp's privacy-preserving "linked ID" addressing means
+   * remoteJid is increasingly `{id}@lid` rather than a resolvable
+   * phone-number JID — confirmed empirically that this is the
+   * *common* case for real 1:1 chats, not an edge case. When present,
+   * remoteJidAlt carries the resolvable `{digits}@s.whatsapp.net` form
+   * of the same chat. Without it, the JID genuinely can't be resolved
+   * to a phone number — known limitation, not a bug.
+   */
+  remoteJidAlt?: string
+  /** Same Alt-JID pattern as remoteJidAlt, for the group participant. */
+  participantAlt?: string
+}
+
+export interface EvolutionMessageContent {
+  conversation?: string
+  extendedTextMessage?: { text?: string }
+  imageMessage?: { caption?: string; mimetype?: string; url?: string }
+  videoMessage?: { caption?: string; mimetype?: string; url?: string }
+  documentMessage?: {
+    caption?: string
+    fileName?: string
+    mimetype?: string
+    url?: string
+  }
+  audioMessage?: { mimetype?: string; url?: string }
+  stickerMessage?: { mimetype?: string; url?: string }
+  locationMessage?: {
+    degreesLatitude?: number
+    degreesLongitude?: number
+    name?: string
+    address?: string
+  }
+}
+
+export interface EvolutionMessageUpsertData {
+  key: EvolutionMessageKey
+  pushName?: string
+  message?: EvolutionMessageContent
+  messageTimestamp?: number
+}
+
 interface EvolutionErrorResponse {
   message?: string | string[]
   error?: string
@@ -151,6 +210,12 @@ export async function getEvolutionConnectionState(cfg: EvolutionInstanceConfig):
  * route to the given event types. Called once right after
  * createEvolutionInstance, before the operator scans the QR code, so
  * inbound events start flowing the moment the session connects.
+ *
+ * Payload shape confirmed against a real Evolution API v2.3.7 instance
+ * (the "VERIFY AGAINST A REAL INSTANCE" this file originally shipped
+ * with): `enabled` is REQUIRED — omitting it silently leaves the
+ * webhook unregistered rather than erroring at the top level — and the
+ * field is `webhookByEvents` (camelCase), not `webhook_by_events`.
  */
 export async function setEvolutionWebhook(
   args: EvolutionInstanceConfig & { webhookUrl: string; events: string[] },
@@ -160,7 +225,7 @@ export async function setEvolutionWebhook(
     method: 'POST',
     headers: authHeaders(apiKey),
     body: JSON.stringify({
-      webhook: { url: webhookUrl, webhook_by_events: true, events },
+      webhook: { enabled: true, url: webhookUrl, webhookByEvents: true, events },
     }),
   })
   if (!response.ok) {
@@ -170,15 +235,17 @@ export async function setEvolutionWebhook(
 
 /** Event names this app subscribes to — see setEvolutionWebhook callers.
  *  MESSAGES_UPSERT alone covers both 1:1 and group messages (a group
- *  message is just one whose remoteJid ends in '@g.us'); the GROUPS_*
+ *  message is just one whose remoteJid ends in '@g.us'); the group
  *  events keep group metadata (subject, participants) in sync
- *  independent of message traffic. */
+ *  independent of message traffic. Confirmed against a real instance's
+ *  validation error (400 on the earlier `GROUPS_UPDATE` guess) that
+ *  the real enum value is singular: `GROUP_UPDATE`, not `GROUPS_UPDATE`. */
 export const EVOLUTION_WEBHOOK_EVENTS = [
   'MESSAGES_UPSERT',
   'MESSAGES_UPDATE',
   'CONNECTION_UPDATE',
   'GROUPS_UPSERT',
-  'GROUPS_UPDATE',
+  'GROUP_UPDATE',
   'GROUP_PARTICIPANTS_UPDATE',
 ] as const
 
@@ -252,14 +319,28 @@ export async function sendEvolutionMedia(args: SendEvolutionMediaArgs): Promise<
 // create groups or manage membership from this app)
 // ============================================================
 
+export interface EvolutionGroupParticipant {
+  /** `@lid` linked-device identity. */
+  id: string
+  /** Resolvable `{digits}@s.whatsapp.net` form of the same participant
+   *  — same Alt-JID pattern as message keys' remoteJidAlt/
+   *  participantAlt (see evolution-ingest.ts). Confirmed present on a
+   *  real instance. */
+  phoneNumber?: string
+  admin?: 'admin' | 'superadmin' | null
+}
+
 export interface EvolutionGroupInfo {
   id: string
   subject: string
   creation: number
   owner: string
+  size?: number
+  participants?: EvolutionGroupParticipant[]
 }
 
-/** GET /group/findGroupInfos/{instanceName}?groupJid=... */
+/** GET /group/findGroupInfos/{instanceName}?groupJid=... — confirmed
+ *  against a real instance; response includes `participants` inline. */
 export async function fetchEvolutionGroupInfo(
   cfg: EvolutionInstanceConfig,
   groupJid: string,
@@ -272,19 +353,8 @@ export async function fetchEvolutionGroupInfo(
   return response.json()
 }
 
-export interface EvolutionGroupParticipant {
-  id: string
-  admin?: 'admin' | 'superadmin' | null
-}
-
-/**
- * VERIFY AGAINST A REAL INSTANCE: exact endpoint path — the docs index
- * lists a dedicated "get-participants" page separate from
- * findGroupInfos, but the precise path wasn't confirmed while writing
- * this file. `/group/participants/{instanceName}` is the best-guess
- * convention matching Evolution's other group routes; confirm before
- * relying on this in production.
- */
+/** GET /group/participants/{instanceName}?groupJid=... — confirmed
+ *  against a real instance (returns `{ participants: [...] }`). */
 export async function fetchEvolutionGroupParticipants(
   cfg: EvolutionInstanceConfig,
   groupJid: string,
@@ -296,4 +366,57 @@ export async function fetchEvolutionGroupParticipants(
   }
   const data = await response.json()
   return Array.isArray(data) ? data : (data?.participants ?? [])
+}
+
+/**
+ * GET /group/fetchAllGroups/{instanceName}?getParticipants=false — every
+ * group this instance is a member of. Confirmed against a real
+ * instance. Used by the history-sync route to pre-create a synthetic
+ * contact for every group up front, not just ones with already-fetched
+ * message history.
+ */
+export async function fetchEvolutionAllGroups(
+  cfg: EvolutionInstanceConfig,
+): Promise<EvolutionGroupInfo[]> {
+  const url = `${cfg.apiUrl}/group/fetchAllGroups/${cfg.instanceName}?getParticipants=false`
+  const response = await fetch(url, { headers: authHeaders(cfg.apiKey) })
+  if (!response.ok) {
+    await throwEvolutionError(response, `Evolution API error fetching all groups: ${response.status}`)
+  }
+  return response.json()
+}
+
+// ============================================================
+// History backfill (see docs/DEPLOYMENT.md / the Evolution API
+// integration plan) — pulls existing chat history into the CRM once,
+// via src/app/api/whatsapp/evolution-config/sync/route.ts.
+// ============================================================
+
+export interface EvolutionMessagesPageResult {
+  total: number
+  pages: number
+  currentPage: number
+  records: EvolutionMessageUpsertData[]
+}
+
+/**
+ * POST /chat/findMessages/{instanceName} — confirmed against a real
+ * instance: fixed page size of 50 (the `limit` field has no effect,
+ * despite appearing in some Evolution docs — tested empirically),
+ * newest-first, no working `sort` param. `page` is 1-indexed.
+ */
+export async function fetchEvolutionMessagesPage(
+  cfg: EvolutionInstanceConfig,
+  page: number,
+): Promise<EvolutionMessagesPageResult> {
+  const response = await fetch(`${cfg.apiUrl}/chat/findMessages/${cfg.instanceName}`, {
+    method: 'POST',
+    headers: authHeaders(cfg.apiKey),
+    body: JSON.stringify({ where: {}, page }),
+  })
+  if (!response.ok) {
+    await throwEvolutionError(response, `Evolution API error fetching messages: ${response.status}`)
+  }
+  const data = await response.json()
+  return data.messages
 }
