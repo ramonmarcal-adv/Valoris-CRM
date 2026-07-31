@@ -15,7 +15,7 @@ import {
   AvatarImage,
 } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
-import { Switch } from '@/components/ui/switch';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useTranslations } from 'next-intl';
 import { SettingsPanelHead } from './settings-panel-head';
 
@@ -310,20 +310,41 @@ export function ProfileForm() {
           </div>
 
           {/* Message signature */}
-          <div className="flex items-start justify-between gap-4 rounded-lg border border-border p-4">
-            <div>
-              <p className="text-sm font-medium text-foreground">
-                {t('signatureTitle')}
-              </p>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                {t('signatureDescription')}
-              </p>
-            </div>
-            <Switch
-              checked={signatureEnabled}
-              onCheckedChange={setSignatureEnabled}
-              disabled={saving}
-            />
+          <div className="rounded-lg border border-border p-4">
+            <p className="text-sm font-medium text-foreground">
+              {t('signatureTitle')}
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {t('signatureDescription')}
+            </p>
+            <RadioGroup
+              value={signatureEnabled ? 'all' : 'manual'}
+              onValueChange={(value) => setSignatureEnabled(value === 'all')}
+              className="mt-3 gap-2.5"
+            >
+              <label className="flex cursor-pointer items-start gap-2.5">
+                <RadioGroupItem value="all" disabled={saving} className="mt-0.5" />
+                <span>
+                  <span className="block text-sm font-medium text-foreground">
+                    {t('signatureModeAll')}
+                  </span>
+                  <span className="block text-xs text-muted-foreground">
+                    {t('signatureModeAllDesc')}
+                  </span>
+                </span>
+              </label>
+              <label className="flex cursor-pointer items-start gap-2.5">
+                <RadioGroupItem value="manual" disabled={saving} className="mt-0.5" />
+                <span>
+                  <span className="block text-sm font-medium text-foreground">
+                    {t('signatureModeManual')}
+                  </span>
+                  <span className="block text-xs text-muted-foreground">
+                    {t('signatureModeManualDesc')}
+                  </span>
+                </span>
+              </label>
+            </RadioGroup>
           </div>
 
           {/* Read-only block */}

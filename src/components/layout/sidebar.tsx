@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { useTotalUnread } from "@/hooks/use-total-unread";
@@ -119,6 +119,12 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
   const { profile, profileLoading, account, accountRole, signOut } = useAuth();
   const totalUnread = useTotalUnread();
   const unreadNotifications = useUnreadNotifications();
+  // Tracks the specific URL that failed to load (not just a boolean) so
+  // the fallback icon self-heals the moment an admin fixes the URL in
+  // Settings → Branding, without needing an effect to reset it.
+  const [brokenLogoUrl, setBrokenLogoUrl] = useState<string | null>(null);
+  const logoUrl = account?.branding_logo_url ?? null;
+  const showLogo = !!logoUrl && logoUrl !== brokenLogoUrl;
   // Only surface the account-name strip when it actually carries
   // information. A solo user's personal account is named after them
   // (the 017 signup trigger seeds it from `full_name`), so showing it
@@ -189,12 +195,13 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border px-4">
           <Link href="/dashboard" className="flex items-center gap-2">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-primary text-primary-foreground">
-              {account?.branding_logo_url ? (
+              {showLogo ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={account.branding_logo_url}
+                  src={logoUrl!}
                   alt=""
                   className="h-full w-full object-cover"
+                  onError={() => setBrokenLogoUrl(logoUrl)}
                 />
               ) : (
                 <MessageSquare className="h-4 w-4" />

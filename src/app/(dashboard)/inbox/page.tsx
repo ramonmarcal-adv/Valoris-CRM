@@ -897,7 +897,16 @@ function InboxPageInner() {
   // either board stays consistent.
   const handleConversationDealMoved = useCallback(
     async (conversationId: string, newStageId: string) => {
-      if (newStageId === NO_PIPELINE_COLUMN_ID) return;
+      // "Sem Pipeline"/no-deal-in-this-pipeline isn't a real stage — a
+      // card sits there because the contact has no deal in the
+      // currently-selected pipeline, not because a deal was moved to a
+      // "no stage" state. Dropping a card here used to be a silent
+      // no-op (the card just snapped back with no explanation); tell
+      // the agent why instead.
+      if (newStageId === NO_PIPELINE_COLUMN_ID) {
+        toast.error(tBoard("toastCannotMoveToNoPipeline"));
+        return;
+      }
       const conv = conversations.find((c) => c.id === conversationId);
       const deal = conv ? bestDealByContactId.get(conv.contact_id) : undefined;
       if (!deal) return;

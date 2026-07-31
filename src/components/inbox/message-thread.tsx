@@ -197,15 +197,63 @@ export function MessageThread({
   const { getPresence, getRow, now } = usePresence();
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  // Per-conversation "sign with my name" toggle (composer icon-button) —
-  // resets to the agent's global default (Settings → Profile) whenever
-  // the open conversation changes or that default itself loads/changes,
-  // but the agent can still flip it just for this thread without
-  // touching their global preference.
+  // Per-conversation "sign with my name" toggle (composer icon-button).
+  // Persisted in `conversation_signature_overrides` (migration 054),
+  // keyed on (conversation, agent) — NOT plain React state, which used
+  // to silently forget the choice after the first send. A row existing
+  // there is an explicit per-conversation exception; its absence means
+  // "use the agent's global default" (Settings → Profile,
+  // profile.signature_enabled).
   const [signatureEnabled, setSignatureEnabled] = useState(false);
   useEffect(() => {
-    setSignatureEnabled(profile?.signature_enabled ?? false);
-  }, [conversation?.id, profile?.signature_enabled]);
+    const convId = conversation?.id;
+    const globalDefault = profile?.signature_enabled ?? false;
+    if (!convId || !user?.id) {
+      setSignatureEnabled(globalDefault);
+      return;
+    }
+    let cancelled = false;
+    const supabase = createClient();
+    supabase
+      .from("conversation_signature_overrides")
+      .select("signature_enabled")
+      .eq("conversation_id", convId)
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) {
+          console.error("Failed to load signature override:", error);
+          setSignatureEnabled(globalDefault);
+          return;
+        }
+        setSignatureEnabled(data ? data.signature_enabled : globalDefault);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [conversation?.id, user?.id, profile?.signature_enabled]);
+
+  const handleToggleSignature = useCallback(async () => {
+    if (!conversation || !user?.id || !accountId) return;
+    const next = !signatureEnabled;
+    setSignatureEnabled(next); // optimistic — the composer icon should react instantly
+    const supabase = createClient();
+    const { error } = await supabase.from("conversation_signature_overrides").upsert(
+      {
+        account_id: accountId,
+        conversation_id: conversation.id,
+        user_id: user.id,
+        signature_enabled: next,
+      },
+      { onConflict: "conversation_id,user_id" },
+    );
+    if (error) {
+      console.error("Failed to save signature preference:", error);
+      setSignatureEnabled(!next); // revert — the write didn't stick, don't lie about the state
+      toast.error(t("signatureToggleFailed"));
+    }
+  }, [conversation, user?.id, accountId, signatureEnabled, t]);
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [reactions, setReactions] = useState<MessageReaction[]>([]);
@@ -1507,7 +1555,7 @@ export function MessageThread({
         replyTo={replyTo}
         onClearReply={() => setReplyTo(null)}
         signatureEnabled={signatureEnabled}
-        onToggleSignature={() => setSignatureEnabled((v) => !v)}
+        onToggleSignature={handleToggleSignature}
       />
 
       <TemplatePicker

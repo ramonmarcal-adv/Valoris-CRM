@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Building2, Loader2, MessageSquare } from "lucide-react";
+import { Building2, Loader2, MessageSquare, Upload, AlertTriangle } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -21,6 +21,14 @@ import { SettingsPanelHead } from "./settings-panel-head";
 
 export const DEFAULT_BRAND_NAME = "Valoris CRM";
 
+const MAX_LOGO_BYTES = 2 * 1024 * 1024;
+const ALLOWED_LOGO_MIME = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/gif",
+]);
+
 /**
  * Branding — the app name/logo shown in the sidebar's top-left corner
  * (sidebar.tsx). Both fields are optional; leaving them blank falls
@@ -38,16 +46,52 @@ export function BrandingPanel() {
   const [name, setName] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [previewBroken, setPreviewBroken] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     setName(account?.branding_name ?? "");
     setLogoUrl(account?.branding_logo_url ?? "");
   }, [account?.branding_name, account?.branding_logo_url]);
-  /* eslint-enable react-hooks/set-state-in-effect */
 
   const dirty =
     name !== (account?.branding_name ?? "") || logoUrl !== (account?.branding_logo_url ?? "");
+
+  async function handlePickLogo(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // reset so the same file can be re-picked
+    if (!file || !accountId) return;
+
+    if (!ALLOWED_LOGO_MIME.has(file.type)) {
+      toast.error(t("unsupportedImage"), { description: t("unsupportedImageDesc") });
+      return;
+    }
+    if (file.size > MAX_LOGO_BYTES) {
+      toast.error(t("imageTooLarge"), { description: t("imageTooLargeDesc") });
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "png";
+      const path = `account-${accountId}/logo-${Date.now()}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from("branding")
+        .upload(path, file, { cacheControl: "3600", upsert: true, contentType: file.type });
+      if (uploadError) throw uploadError;
+
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("branding").getPublicUrl(path);
+      setLogoUrl(publicUrl);
+      setPreviewBroken(false);
+    } catch (err) {
+      toast.error(t("uploadFailed", { message: err instanceof Error ? err.message : "" }));
+    } finally {
+      setUploading(false);
+    }
+  }
 
   async function handleSave() {
     if (!accountId || !dirty) return;
@@ -89,14 +133,25 @@ export function BrandingPanel() {
           {/* Live preview — mirrors the sidebar's logo row exactly. */}
           <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 p-3">
             <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg bg-primary text-primary-foreground">
-              {previewLogo ? (
+              {previewLogo && !previewBroken ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={previewLogo} alt="" className="h-full w-full object-cover" />
+                <img
+                  src={previewLogo}
+                  alt=""
+                  className="h-full w-full object-cover"
+                  onError={() => setPreviewBroken(true)}
+                />
               ) : (
                 <MessageSquare className="h-4 w-4" />
               )}
             </div>
             <span className="text-sm font-semibold text-foreground">{previewName}</span>
+            {previewLogo && previewBroken && (
+              <span className="flex items-center gap-1 text-xs text-destructive">
+                <AlertTriangle className="size-3.5" />
+                {t("logoBroken")}
+              </span>
+            )}
           </div>
 
           <div className="grid gap-2">
@@ -116,13 +171,39 @@ export function BrandingPanel() {
             <Label htmlFor="branding-logo" className="text-muted-foreground">
               {t("logoLabel")}
             </Label>
-            <Input
-              id="branding-logo"
-              value={logoUrl}
-              onChange={(e) => setLogoUrl(e.target.value)}
-              placeholder={t("logoPlaceholder")}
-              disabled={!canEditSettings || profileLoading}
-            />
+            <div className="flex gap-2">
+              <Input
+                id="branding-logo"
+                value={logoUrl}
+                onChange={(e) => {
+                  setLogoUrl(e.target.value);
+                  setPreviewBroken(false);
+                }}
+                placeholder={t("logoPlaceholder")}
+                disabled={!canEditSettings || profileLoading}
+                className="flex-1"
+              />
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                className="hidden"
+                onChange={handlePickLogo}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={!canEditSettings || profileLoading || uploading}
+              >
+                {uploading ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Upload className="size-4" />
+                )}
+                {t("uploadLogo")}
+              </Button>
+            </div>
             <p className="text-xs text-muted-foreground">{t("logoHint")}</p>
           </div>
 
