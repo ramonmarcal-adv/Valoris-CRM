@@ -277,10 +277,21 @@ export function ConversationList({
       });
     }
 
-    // Pinned conversations float to the top. Array#sort is stable, so
-    // this only reorders across the pinned/unpinned boundary and leaves
-    // everything else in its existing (last-message-desc) order.
-    return [...result].sort((a, b) => Number(b.is_pinned) - Number(a.is_pinned));
+    // Pinned conversations float to the top; within each group, most
+    // recent activity first. Always re-derived from last_message_at
+    // rather than relying on the array's existing order — realtime
+    // events patch a conversation's last_message_at in place (see
+    // handleMessageEvent/handleConversationEvent in the inbox page),
+    // which changes the field but not the array index, so a stale
+    // "it was already sorted at fetch time" assumption here silently
+    // drifted out of order as messages arrived.
+    return [...result].sort((a, b) => {
+      const pinDiff = Number(b.is_pinned) - Number(a.is_pinned);
+      if (pinDiff !== 0) return pinDiff;
+      const aTime = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;
+      const bTime = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;
+      return bTime - aTime;
+    });
   }, [
     conversations,
     filter,
