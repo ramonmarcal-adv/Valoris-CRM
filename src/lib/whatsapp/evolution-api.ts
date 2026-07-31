@@ -376,6 +376,12 @@ export interface EvolutionGroupInfo {
    *  fetchEvolutionProfilePicture — or null when the group has no
    *  photo. Confirmed present on a real instance. */
   pictureUrl?: string | null
+  /** Group description ("info do grupo"). VERIFY AGAINST A REAL
+   *  INSTANCE: findGroupInfos' description field name (`desc` vs
+   *  `description`) wasn't confirmed — fetchEvolutionGroupInfo below
+   *  normalizes both into this key, but an instance using a third name
+   *  would silently read as "no description" rather than erroring. */
+  description?: string | null
 }
 
 /** GET /group/findGroupInfos/{instanceName}?groupJid=... — confirmed
@@ -389,7 +395,8 @@ export async function fetchEvolutionGroupInfo(
   if (!response.ok) {
     await throwEvolutionError(response, `Evolution API error fetching group info: ${response.status}`)
   }
-  return response.json()
+  const data = await response.json()
+  return { ...data, description: data?.desc ?? data?.description ?? null }
 }
 
 /** GET /group/participants/{instanceName}?groupJid=... — confirmed
@@ -423,6 +430,140 @@ export async function fetchEvolutionAllGroups(
     await throwEvolutionError(response, `Evolution API error fetching all groups: ${response.status}`)
   }
   return response.json()
+}
+
+// ============================================================
+// Group management (v2 — write operations, added for the "Group info"
+// panel roadmap item). Unlike the read functions above, these were
+// NOT all smoke-tested against a real Evolution instance before this
+// panel shipped — see each function's own comment for its verification
+// status. Test destructive ones (leaveEvolutionGroup) against a
+// disposable group first, never a real customer group.
+// ============================================================
+
+export type EvolutionParticipantAction = 'add' | 'remove' | 'promote' | 'demote'
+
+/**
+ * POST /group/updateParticipant/{instanceName} — confirmed to exist
+ * against a real instance (endpoint responds, not a 404), but the
+ * response shape on partial failure (e.g. one of several numbers not
+ * on WhatsApp) was not exercised. `participants` are bare digit
+ * strings, not JIDs — same convention as sendEvolutionText's `to`.
+ */
+export async function updateEvolutionGroupParticipants(
+  cfg: EvolutionInstanceConfig,
+  args: { groupJid: string; action: EvolutionParticipantAction; participants: string[] },
+): Promise<void> {
+  const response = await fetch(`${cfg.apiUrl}/group/updateParticipant/${cfg.instanceName}`, {
+    method: 'POST',
+    headers: authHeaders(cfg.apiKey),
+    body: JSON.stringify({
+      groupJid: args.groupJid,
+      action: args.action,
+      participants: args.participants,
+    }),
+  })
+  if (!response.ok) {
+    await throwEvolutionError(response, `Evolution API error updating group participants: ${response.status}`)
+  }
+}
+
+/**
+ * POST /group/updateGroupSubject/{instanceName}.
+ * VERIFY AGAINST A REAL INSTANCE: same naming convention as the
+ * confirmed group endpoints, but never smoke-tested — test calls at
+ * plan time timed out against a placeholder group. Confirm against a
+ * disposable test group before relying on this in production.
+ */
+export async function updateEvolutionGroupSubject(
+  cfg: EvolutionInstanceConfig,
+  args: { groupJid: string; subject: string },
+): Promise<void> {
+  const response = await fetch(`${cfg.apiUrl}/group/updateGroupSubject/${cfg.instanceName}`, {
+    method: 'POST',
+    headers: authHeaders(cfg.apiKey),
+    body: JSON.stringify({ groupJid: args.groupJid, subject: args.subject }),
+  })
+  if (!response.ok) {
+    await throwEvolutionError(response, `Evolution API error updating group subject: ${response.status}`)
+  }
+}
+
+/**
+ * POST /group/updateGroupDescription/{instanceName}.
+ * VERIFY AGAINST A REAL INSTANCE — same caveat as updateEvolutionGroupSubject.
+ */
+export async function updateEvolutionGroupDescription(
+  cfg: EvolutionInstanceConfig,
+  args: { groupJid: string; description: string },
+): Promise<void> {
+  const response = await fetch(`${cfg.apiUrl}/group/updateGroupDescription/${cfg.instanceName}`, {
+    method: 'POST',
+    headers: authHeaders(cfg.apiKey),
+    body: JSON.stringify({ groupJid: args.groupJid, description: args.description }),
+  })
+  if (!response.ok) {
+    await throwEvolutionError(response, `Evolution API error updating group description: ${response.status}`)
+  }
+}
+
+/**
+ * POST /group/updateGroupPicture/{instanceName} — confirmed to exist
+ * against a real instance. `image` is a publicly-fetchable URL, same
+ * convention as sendEvolutionMedia's `mediaUrl` (base64 data URIs are
+ * also commonly accepted by Evolution for this field, but only the URL
+ * form was confirmed).
+ */
+export async function updateEvolutionGroupPicture(
+  cfg: EvolutionInstanceConfig,
+  args: { groupJid: string; image: string },
+): Promise<void> {
+  const response = await fetch(`${cfg.apiUrl}/group/updateGroupPicture/${cfg.instanceName}`, {
+    method: 'POST',
+    headers: authHeaders(cfg.apiKey),
+    body: JSON.stringify({ groupJid: args.groupJid, image: args.image }),
+  })
+  if (!response.ok) {
+    await throwEvolutionError(response, `Evolution API error updating group picture: ${response.status}`)
+  }
+}
+
+/**
+ * GET /group/inviteCode/{instanceName}?groupJid=... — endpoint exists
+ * but a real test call once returned "forbidden"; likely needs the bot
+ * account to hold admin in the target group. Callers must handle the
+ * thrown error and show it inline rather than treating "no invite
+ * code" as a crash.
+ */
+export async function fetchEvolutionGroupInviteCode(
+  cfg: EvolutionInstanceConfig,
+  groupJid: string,
+): Promise<{ inviteCode: string | null }> {
+  const url = `${cfg.apiUrl}/group/inviteCode/${cfg.instanceName}?groupJid=${encodeURIComponent(groupJid)}`
+  const response = await fetch(url, { headers: authHeaders(cfg.apiKey) })
+  if (!response.ok) {
+    await throwEvolutionError(response, `Evolution API error fetching invite code: ${response.status}`)
+  }
+  const data = await response.json()
+  return { inviteCode: data?.inviteCode ?? data?.invite_code ?? data?.code ?? null }
+}
+
+/**
+ * DELETE /group/leaveGroup/{instanceName}?groupJid=... — NEVER TESTED
+ * against a real instance (destructive: removes this WhatsApp session
+ * from the group with no undo). VERIFY AGAINST A REAL INSTANCE first,
+ * using a disposable test group — do not exercise this against a real
+ * customer group without a deliberate, confirmed decision to do so.
+ */
+export async function leaveEvolutionGroup(
+  cfg: EvolutionInstanceConfig,
+  groupJid: string,
+): Promise<void> {
+  const url = `${cfg.apiUrl}/group/leaveGroup/${cfg.instanceName}?groupJid=${encodeURIComponent(groupJid)}`
+  const response = await fetch(url, { method: 'DELETE', headers: authHeaders(cfg.apiKey) })
+  if (!response.ok) {
+    await throwEvolutionError(response, `Evolution API error leaving group: ${response.status}`)
+  }
 }
 
 // ============================================================

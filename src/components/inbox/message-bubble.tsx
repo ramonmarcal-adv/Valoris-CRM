@@ -19,6 +19,7 @@ import { format } from "date-fns";
 import { ReplyQuote } from "./reply-quote";
 import { MessageReactions } from "./message-reactions";
 import { InteractivePreview } from "@/components/interactive/interactive-preview";
+import { LinkPreviewCard } from "./link-preview-card";
 import { useTranslations } from "next-intl";
 
 interface MessageBubbleProps {
@@ -57,6 +58,45 @@ function highlightText(text: string, query?: string): ReactNode {
       <span key={i}>{part}</span>
     ),
   );
+}
+
+const URL_REGEX = /https?:\/\/[^\s]+/g;
+// Trailing punctuation that's almost always sentence structure, not part
+// of the URL itself (e.g. "check this out: https://x.com/foo." or a link
+// in parentheses).
+const URL_TRAILING_PUNCTUATION = /[.,!?;:'")\]]+$/;
+
+/** First http(s) URL found in `text`, trimmed of trailing punctuation, or
+ *  null if there isn't one. Used to decide whether to show a link
+ *  preview card below the bubble — WhatsApp itself only ever previews
+ *  the first link in a message, so this doesn't bother finding more. */
+function extractFirstUrl(text: string): string | null {
+  const match = text.match(URL_REGEX);
+  if (!match) return null;
+  return match[0].replace(URL_TRAILING_PUNCTUATION, "");
+}
+
+/** Splits `text` into plain-text and URL segments so URLs can render as
+ *  clickable links while everything else still goes through
+ *  `highlightText` for in-thread search highlighting. */
+function splitTextWithLinks(text: string): Array<{ type: "text" | "link"; value: string }> {
+  const parts: Array<{ type: "text" | "link"; value: string }> = [];
+  let lastIndex = 0;
+  URL_REGEX.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = URL_REGEX.exec(text))) {
+    if (match.index > lastIndex) {
+      parts.push({ type: "text", value: text.slice(lastIndex, match.index) });
+    }
+    let url = match[0];
+    const trailing = url.match(URL_TRAILING_PUNCTUATION)?.[0] ?? "";
+    if (trailing) url = url.slice(0, url.length - trailing.length);
+    parts.push({ type: "link", value: url });
+    if (trailing) parts.push({ type: "text", value: trailing });
+    lastIndex = URL_REGEX.lastIndex;
+  }
+  if (lastIndex < text.length) parts.push({ type: "text", value: text.slice(lastIndex) });
+  return parts;
 }
 
 function StatusIcon({ status }: { status: Message["status"] }) {
@@ -152,18 +192,41 @@ function MessageContent({
   message,
   t,
   highlightQuery,
+  isAgent,
 }: {
   message: Message;
   t: ReturnType<typeof useTranslations>;
   highlightQuery?: string;
+  isAgent: boolean;
 }) {
   switch (message.content_type) {
-    case "text":
+    case "text": {
+      const text = message.content_text ?? "";
+      const parts = splitTextWithLinks(text);
+      const firstUrl = extractFirstUrl(text);
       return (
-        <p className="whitespace-pre-wrap break-words text-sm">
-          {highlightText(message.content_text ?? "", highlightQuery)}
-        </p>
+        <div>
+          <p className="whitespace-pre-wrap break-words text-sm">
+            {parts.map((part, i) =>
+              part.type === "link" ? (
+                <a
+                  key={i}
+                  href={part.value}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline underline-offset-2 hover:opacity-80"
+                >
+                  {part.value}
+                </a>
+              ) : (
+                <span key={i}>{highlightText(part.value, highlightQuery)}</span>
+              ),
+            )}
+          </p>
+          {firstUrl && <LinkPreviewCard url={firstUrl} onDark={isAgent} />}
+        </div>
       );
+    }
 
     case "image":
       return (
@@ -373,7 +436,12 @@ export function MessageBubble({
           "relative rounded-2xl px-3 py-2",
           isAgent
             ? "rounded-br-md bg-primary text-primary-foreground"
-            : "rounded-bl-md bg-muted text-foreground",
+            : // bg-muted alone is nearly indistinguishable from the
+              // thread's bg-background wallpaper in light mode (both
+              // near-white) — the border gives the lead's bubble a
+              // visible edge in both themes without touching the
+              // shared --muted token used elsewhere.
+              "rounded-bl-md border border-border/60 bg-muted text-foreground",
         )}
       >
         {reply && (
@@ -383,7 +451,7 @@ export function MessageBubble({
             onPrimary={isAgent}
           />
         )}
-        <MessageContent message={message} t={t} highlightQuery={highlightQuery} />
+        <MessageContent message={message} t={t} highlightQuery={highlightQuery} isAgent={isAgent} />
         <div
           className={cn(
             "mt-1 flex items-center gap-1",
