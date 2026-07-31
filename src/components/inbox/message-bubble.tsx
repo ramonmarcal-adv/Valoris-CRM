@@ -343,12 +343,14 @@ function MessageContent({
       return (
         <div className="min-w-0">
           {message.media_url ? (
-            // `min-w-0` is load-bearing here, not decorative: the native
-            // <audio> control has an intrinsic min-width Tailwind's
-            // max-w-60 alone doesn't clip, which was pushing the thread
-            // into a horizontal scrollbar it doesn't need — same class
-            // of bug already fixed once in reply-quote.tsx.
-            <audio src={message.media_url} controls className="w-60 max-w-full min-w-0" />
+            // `w-full` (not a fixed `w-60`) so the player shrinks with
+            // its bubble on a narrow viewport instead of forcing the
+            // thread to scroll horizontally — `max-w-60` just caps how
+            // wide it gets on a roomy screen. `min-w-0` overrides the
+            // native <audio> control's own intrinsic min-width, which
+            // neither width utility alone would clip — same class of
+            // bug already fixed once in reply-quote.tsx.
+            <audio src={message.media_url} controls className="w-full max-w-60 min-w-0" />
           ) : (
             <MediaUnavailable label={t("audio")} t={t} />
           )}

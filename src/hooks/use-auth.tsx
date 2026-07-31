@@ -144,13 +144,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfileLoading(true);
     lastFetchedUserIdRef.current = userId;
     try {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from("profiles")
         .select(
           "id, full_name, email, avatar_url, role, beta_features, account_id, account_role, signature_enabled",
         )
         .eq("user_id", userId)
         .maybeSingle();
+
+      // `signature_enabled` (migration 052) can land in code before the
+      // migration itself is applied to the DB — code and migrations
+      // deploy independently, not atomically. PostgREST fails the
+      // *entire* select when a column doesn't exist yet, which
+      // previously blanked every user's profile account-wide (no
+      // account_role → every capability check reads as least-privileged
+      // "viewer", header falls back to a generic name) until someone
+      // noticed and ran the migration. Retry once without the new
+      // column so a pending migration degrades to "signature toggle
+      // unavailable" instead of "nobody can send messages."
+      if (error) {
+        const retry = await supabase
+          .from("profiles")
+          .select(
+            "id, full_name, email, avatar_url, role, beta_features, account_id, account_role",
+          )
+          .eq("user_id", userId)
+          .maybeSingle();
+        data = retry.data as typeof data;
+        error = retry.error;
+      }
 
       if (error) {
         console.error("[AuthProvider] fetchProfile error:", {
@@ -176,7 +198,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // account name lookup itself can't.
         let accountRow: AccountSummary | null = null;
         if (data.account_id) {
-          const { data: account, error: accountErr } = await supabase
+          let { data: account, error: accountErr } = await supabase
             .from("accounts")
             // default_currency added in migration 021; narrowed to the
             // USD fallback below for older schemas where it reads null.
@@ -184,6 +206,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .select("id, name, default_currency, branding_name, branding_logo_url")
             .eq("id", data.account_id)
             .maybeSingle();
+          // Same "migration hasn't landed yet" fallback as the profiles
+          // query above — degrade to no branding instead of no account
+          // name/currency at all.
+          if (accountErr) {
+            const retry = await supabase
+              .from("accounts")
+              .select("id, name, default_currency")
+              .eq("id", data.account_id)
+              .maybeSingle();
+            account = retry.data as typeof account;
+            accountErr = retry.error;
+          }
           if (accountErr) {
             console.error("[AuthProvider] fetchAccount error:", {
               message: accountErr.message,
