@@ -56,17 +56,37 @@ export async function GET() {
     console.error('[evolution-config GET] connection state check failed:', err)
   }
 
+  // VERIFY AGAINST A REAL INSTANCE: 'open' is the Baileys convention
+  // for "connected" — see the VERIFY comment on EvolutionConnectionState
+  // in evolution-api.ts.
+  const connected = state === 'open'
+  const newStatus = connected ? 'connected' : 'disconnected'
+
+  // Self-heal `status`: unlike the Meta config route, nothing else ever
+  // writes this column for an Evolution row after the initial save (it
+  // starts at 'disconnected' and would otherwise stay there forever).
+  // Other surfaces — the inbox's connection banner — read this column
+  // directly rather than probing live, so it needs to track reality.
+  // Skipped when the probe itself failed ('unknown'): don't overwrite a
+  // real status with a guess based on a network hiccup.
+  if (state !== 'unknown' && config.status !== newStatus) {
+    const { error: updateError } = await supabase
+      .from('whatsapp_config')
+      .update({ status: newStatus })
+      .eq('id', config.id)
+    if (updateError) {
+      console.error('[evolution-config GET] status self-heal failed:', updateError)
+    }
+  }
+
   return NextResponse.json({
     configured: true,
     instance_name: config.instance_name,
     api_url: config.api_url,
     is_primary: config.is_primary,
-    status: config.status,
-    // VERIFY AGAINST A REAL INSTANCE: 'open' is the Baileys convention
-    // for "connected" — see the VERIFY comment on
-    // EvolutionConnectionState in evolution-api.ts.
+    status: state === 'unknown' ? config.status : newStatus,
     connection_state: state,
-    connected: state === 'open',
+    connected,
   })
 }
 
