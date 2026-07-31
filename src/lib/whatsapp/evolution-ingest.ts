@@ -145,6 +145,62 @@ export function resolveJidPhone(jid: string | undefined, altJid?: string): strin
   return null
 }
 
+interface ResolvedGroupParticipant {
+  phone: string
+  name?: string | null
+  avatarUrl?: string | null
+}
+
+/** groupJid -> (lid -> resolved participant). Lets a caller processing
+ *  many messages in one request (the history backfill's per-page loop,
+ *  or a single live webhook delivery carrying several messages) fetch a
+ *  given group's participant list once instead of once per message. */
+export type LidParticipantCache = Map<string, Map<string, ResolvedGroupParticipant>>
+
+/**
+ * WhatsApp's `@lid` privacy addressing hides a group participant's real
+ * number from the message itself — neither `key.participant` nor
+ * `key.participantAlt` carry it (confirmed against a real instance: the
+ * history endpoint never returns participantAlt at all, and essentially
+ * every participant in this account's groups is `@lid`-only), and a
+ * group message's `pushName` for an `@lid` sender is frequently just
+ * their numeric lid rather than an actual name. The group's own
+ * participant list is a separate, already-fetched-elsewhere endpoint
+ * (see fetchEvolutionGroupParticipants, used today only for a
+ * participant *count*) that maps each lid to a resolvable phone JID
+ * plus a real display name and photo — confirmed against a real
+ * instance (100% of a sampled group's participants resolved). This was
+ * sitting unused. Best-effort: a participant who has since left the
+ * group, or one Evolution itself can't resolve, leaves the message's
+ * sender_id null same as before.
+ */
+async function resolveGroupParticipant(
+  config: ConfigRow,
+  groupJid: string,
+  participantLid: string,
+  cache?: LidParticipantCache,
+): Promise<ResolvedGroupParticipant | null> {
+  let lidMap = cache?.get(groupJid)
+  if (!lidMap) {
+    lidMap = new Map()
+    try {
+      const apiKey = decrypt(config.api_key)
+      const participants = await fetchEvolutionGroupParticipants(
+        { apiUrl: config.api_url, apiKey, instanceName: config.instance_name },
+        groupJid,
+      )
+      for (const p of participants) {
+        const phone = p.phoneNumber ? resolveJidPhone(p.phoneNumber) : null
+        if (phone) lidMap.set(p.id, { phone, name: p.name, avatarUrl: p.imgUrl })
+      }
+    } catch (err) {
+      console.warn('[evolution-ingest] fetchEvolutionGroupParticipants (lid resolution) failed:', err)
+    }
+    cache?.set(groupJid, lidMap)
+  }
+  return lidMap.get(participantLid) ?? null
+}
+
 export interface ContactOutcome {
   contact: ContactRow
   wasCreated: boolean
@@ -156,6 +212,10 @@ export async function findOrCreateContact(
   configOwnerUserId: string,
   phone: string,
   name: string,
+  /** Already-known avatar URL — e.g. a group's participant-list entry
+   *  carries this for free. Skips the extra fetchEvolutionProfilePicture
+   *  call below (used only on creation, same as that call). */
+  avatarHint?: string | null,
 ): Promise<ContactOutcome | null> {
   const existing = await findExistingContact(supabaseAdmin(), accountId, phone, {
     excludeGroupPlaceholders: true,
@@ -202,18 +262,23 @@ export async function findOrCreateContact(
   // group-name resolution failures this plan fixes elsewhere. A
   // separate one-time repair pass backfills avatars for contacts
   // created before this existed.
-  try {
-    const apiKey = decrypt(config.api_key)
-    const pictureUrl = await fetchEvolutionProfilePicture(
-      { apiUrl: config.api_url, apiKey, instanceName: config.instance_name },
-      phone,
-    )
-    if (pictureUrl) {
-      created.avatar_url = pictureUrl
-      await supabaseAdmin().from('contacts').update({ avatar_url: pictureUrl }).eq('id', created.id)
+  if (avatarHint) {
+    created.avatar_url = avatarHint
+    await supabaseAdmin().from('contacts').update({ avatar_url: avatarHint }).eq('id', created.id)
+  } else {
+    try {
+      const apiKey = decrypt(config.api_key)
+      const pictureUrl = await fetchEvolutionProfilePicture(
+        { apiUrl: config.api_url, apiKey, instanceName: config.instance_name },
+        phone,
+      )
+      if (pictureUrl) {
+        created.avatar_url = pictureUrl
+        await supabaseAdmin().from('contacts').update({ avatar_url: pictureUrl }).eq('id', created.id)
+      }
+    } catch (err) {
+      console.warn('[evolution-ingest] fetchEvolutionProfilePicture failed:', err)
     }
-  } catch (err) {
-    console.warn('[evolution-ingest] fetchEvolutionProfilePicture failed:', err)
   }
 
   return { contact: created, wasCreated: true }
@@ -406,7 +471,7 @@ export interface UpsertEvolutionMessageResult {
 export async function upsertEvolutionMessage(
   config: ConfigRow,
   data: EvolutionMessageUpsertData,
-  options?: { flagBroadcastReply?: boolean },
+  options?: { flagBroadcastReply?: boolean; lidCache?: LidParticipantCache },
 ): Promise<UpsertEvolutionMessageResult | null> {
   if (!data?.key?.remoteJid || !data.message) return null
 
@@ -443,21 +508,40 @@ export async function upsertEvolutionMessage(
     // message doesn't need it (same convention as a live agent send,
     // which never sets sender_id either).
     if (!isOwnMessage) {
-      const participantPhone = resolveJidPhone(data.key.participant, data.key.participantAlt)
+      let participantPhone = resolveJidPhone(data.key.participant, data.key.participantAlt)
+      let participantName: string | null = null
+      let participantAvatar: string | null = null
+      if (!participantPhone && data.key.participant) {
+        // `pushName` on an `@lid` sender is frequently just their
+        // numeric lid, not a real name — the group's participant list
+        // (fetched below to resolve the phone anyway) carries an
+        // actual display name and photo, so prefer those over pushName
+        // whenever this branch runs.
+        const resolved = await resolveGroupParticipant(
+          config,
+          remoteJid,
+          data.key.participant,
+          options?.lidCache,
+        )
+        participantPhone = resolved?.phone ?? null
+        participantName = resolved?.name ?? null
+        participantAvatar = resolved?.avatarUrl ?? null
+      }
       if (participantPhone) {
         const participantOutcome = await findOrCreateParticipantContact(
           config,
           accountId,
           configOwnerUserId,
           participantPhone,
-          data.pushName || participantPhone,
+          participantName || data.pushName || participantPhone,
+          participantAvatar,
         )
         senderContactId = participantOutcome?.contact.id ?? null
       }
-      // else: `@lid` participant with no Alt available — not a phone
-      // number, can't be resolved. sender_id stays null; the inbox
-      // shows a generic "Someone in the group" attribution. Known
-      // limitation.
+      // else: participant not resolvable even via the group's own
+      // participant list (they've since left, or Evolution can't
+      // resolve them either). sender_id stays null; the inbox shows a
+      // generic "Someone in the group" attribution.
     }
   } else {
     const phone = resolveJidPhone(remoteJid, data.key.remoteJidAlt)

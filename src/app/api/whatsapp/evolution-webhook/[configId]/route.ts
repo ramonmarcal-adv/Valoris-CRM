@@ -6,6 +6,7 @@ import {
   upsertEvolutionMessage,
   type ConfigRow,
   type EvolutionMessageUpsertData,
+  type LidParticipantCache,
 } from '@/lib/whatsapp/evolution-ingest'
 import { runAutomationsForTrigger } from '@/lib/automations/engine'
 import { dispatchInboundToFlows } from '@/lib/flows/engine'
@@ -122,8 +123,12 @@ async function processEvolutionWebhook(
         ? [raw as EvolutionMessageUpsertData]
         : []
 
+  // Shared across every message in this single delivery so a batch
+  // touching the same group more than once fetches its participant
+  // list (for @lid resolution) only once.
+  const lidCache: LidParticipantCache = new Map()
   for (const data of messages) {
-    await processEvolutionMessage(config, data).catch((err) =>
+    await processEvolutionMessage(config, data, lidCache).catch((err) =>
       console.error('[evolution-webhook] message processing failed:', err),
     )
   }
@@ -140,8 +145,9 @@ async function processEvolutionWebhook(
 async function processEvolutionMessage(
   config: ConfigRow,
   data: EvolutionMessageUpsertData,
+  lidCache: LidParticipantCache,
 ) {
-  const result = await upsertEvolutionMessage(config, data, { flagBroadcastReply: true })
+  const result = await upsertEvolutionMessage(config, data, { flagBroadcastReply: true, lidCache })
   if (!result || !result.inserted) return
 
   // A fromMe message is either the CRM's own send echoing back (already

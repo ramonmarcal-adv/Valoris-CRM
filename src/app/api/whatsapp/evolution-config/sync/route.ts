@@ -7,6 +7,7 @@ import {
   findOrCreateConversation,
   markConversationAsGroup,
   upsertEvolutionMessage,
+  type LidParticipantCache,
 } from '@/lib/whatsapp/evolution-ingest'
 
 // One page of history (50 messages, Evolution's fixed page size — see
@@ -71,9 +72,13 @@ export async function POST(request: Request) {
       const page = Number((body as { page?: number })?.page) || 1
       const result = await fetchEvolutionMessagesPage(cfg, page)
 
+      // Shared across the whole page so a group with many messages on
+      // it fetches its participant list (for @lid resolution) once,
+      // not once per message.
+      const lidCache: LidParticipantCache = new Map()
       let inserted = 0
       for (const record of result.records) {
-        const outcome = await upsertEvolutionMessage(config, record, { flagBroadcastReply: false })
+        const outcome = await upsertEvolutionMessage(config, record, { flagBroadcastReply: false, lidCache })
         if (outcome?.inserted) inserted++
       }
 

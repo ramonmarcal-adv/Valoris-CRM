@@ -354,6 +354,15 @@ export interface EvolutionGroupParticipant {
    *  real instance. */
   phoneNumber?: string
   admin?: 'admin' | 'superadmin' | null
+  /** Display name, when WhatsApp has one for this participant. Confirmed
+   *  present on a real instance — a far more reliable name source than
+   *  a group message's `pushName`, which for an `@lid` participant is
+   *  frequently just their numeric lid instead of an actual name. */
+  name?: string | null
+  /** Direct, unencrypted, publicly-fetchable profile photo URL — same
+   *  convention as fetchEvolutionProfilePicture/EvolutionGroupInfo.pictureUrl.
+   *  Confirmed present on a real instance. */
+  imgUrl?: string | null
 }
 
 export interface EvolutionGroupInfo {
