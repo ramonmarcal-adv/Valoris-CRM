@@ -580,13 +580,18 @@ export function MessageThread({
     async (text: string, replyToId?: string) => {
       if (!conversation) return;
 
-      // Append "- {name}" when the per-conversation signature toggle is
-      // on (defaults from the agent's global Settings → Profile choice —
-      // see the effect above). Done here, not in the composer, so the
+      // Prepend the agent's name, bold, on its own line — e.g.
+      //   *Ramon Marçal*
+      //   Olá....
+      // — when the per-conversation signature toggle is on (defaults
+      // from the agent's global Settings → Profile choice — see the
+      // effect above). The `*...*` is WhatsApp's own bold marker, which
+      // message-bubble.tsx's markdown parser (src/lib/whatsapp/markdown.ts)
+      // renders as real bold. Done here, not in the composer, so the
       // optimistic bubble and the actual sent text always match.
       const finalText =
         signatureEnabled && profile?.full_name
-          ? `${text}\n\n- ${profile.full_name}`
+          ? `*${profile.full_name}*\n${text}`
           : text;
 
       const tempId = `temp-${Date.now()}`;

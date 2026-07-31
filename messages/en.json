@@ -1788,7 +1788,7 @@
       "email": "Email",
       "emailChangeHint": "Check the inbox for <bold>{oldEmail}</bold> and <bold>{newEmail}</bold> — both need to confirm before the change takes effect.",
       "signatureTitle": "Sign messages with my name",
-      "signatureDescription": "Adds \"- your name\" to the end of messages you send, so the customer knows who's replying. You can still turn this on or off per conversation from the composer.",
+      "signatureDescription": "Adds your name in bold on its own line, above the messages you send, so the customer knows who's replying (e.g. \"*Ada Lovelace*\" then the message on the next line). You can still turn this on or off per conversation from the composer.",
       "accountDetails": "Account details",
       "role": "Role",
       "joined": "Joined",

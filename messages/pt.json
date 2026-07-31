@@ -1788,7 +1788,7 @@
       "email": "E-mail",
       "emailChangeHint": "Verifique a caixa de entrada de <bold>{oldEmail}</bold> e <bold>{newEmail}</bold> — os dois precisam confirmar antes que a alteração tenha efeito.",
       "signatureTitle": "Assinar mensagens com meu nome",
-      "signatureDescription": "Acrescenta \"- seu nome\" no fim das mensagens que você envia, pra o cliente saber quem está respondendo. Você ainda pode ligar/desligar isso por conversa no composer.",
+      "signatureDescription": "Coloca seu nome em negrito numa linha própria, antes das mensagens que você envia, pra o cliente saber quem está respondendo (ex: \"*Ada Lovelace*\" e a mensagem na linha seguinte). Você ainda pode ligar/desligar isso por conversa no composer.",
       "accountDetails": "Detalhes da conta",
       "role": "Perfil",
       "joined": "Entrou em",
