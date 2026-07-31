@@ -73,7 +73,7 @@ export async function POST(request: Request) {
 
       let inserted = 0
       for (const record of result.records) {
-        const outcome = await upsertEvolutionMessage(config, record, { flagBroadcastReply: false, isBackfill: true })
+        const outcome = await upsertEvolutionMessage(config, record, { flagBroadcastReply: false })
         if (outcome?.inserted) inserted++
       }
 

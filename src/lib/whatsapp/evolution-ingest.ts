@@ -406,19 +406,22 @@ export interface UpsertEvolutionMessageResult {
 export async function upsertEvolutionMessage(
   config: ConfigRow,
   data: EvolutionMessageUpsertData,
-  options?: { flagBroadcastReply?: boolean; isBackfill?: boolean },
+  options?: { flagBroadcastReply?: boolean },
 ): Promise<UpsertEvolutionMessageResult | null> {
   if (!data?.key?.remoteJid || !data.message) return null
 
   const isOwnMessage = !!data.key.fromMe
-  // Live webhook: Evolution echoes our own outbound sends back through
-  // the same event stream — already recorded by the CRM's own send flow
-  // at send time, so re-inserting here would duplicate it. History
-  // backfill has no such prior record (these were sent from the phone,
-  // or before the CRM was ever connected) — importing them as
-  // sender_type='agent' is what makes an imported thread read as an
-  // actual back-and-forth instead of a one-sided customer monologue.
-  if (isOwnMessage && !options?.isBackfill) return null
+  // fromMe messages reach here two ways: (1) Evolution echoing back a
+  // send the CRM itself just made — already inserted at send time with
+  // this exact message_id, so the idempotency check below no-ops it —
+  // or (2) a message actually sent from the phone, bypassing the CRM
+  // entirely, which has no prior record and must be inserted here or
+  // it's lost. A previous version of this function couldn't tell those
+  // apart and unconditionally dropped every live fromMe message,
+  // silently swallowing every phone-sent reply (1:1 or group). The
+  // caller (processEvolutionMessage) is responsible for skipping the
+  // dispatch pipeline (flows/automations/AI-reply) on fromMe messages
+  // regardless of which of the two cases this is.
 
   const parsed = parseEvolutionMessageContent(data.message, data.key.id)
   if (!parsed) return null // system/protocol message (edit, reaction, poll, ...) — v1 doesn't ingest these
@@ -522,13 +525,19 @@ export async function upsertEvolutionMessage(
     .update({
       last_message_text: parsed.contentText || `[${parsed.contentType}]`,
       last_message_at: new Date(timestampMs).toISOString(),
-      unread_count: (convResult.conversation.unread_count || 0) + 1,
+      // A fromMe message (sent from the CRM or straight from the phone)
+      // is the agent's own — it must not mark the thread unread for the
+      // agent, the way an actual customer reply does.
+      ...(isOwnMessage ? {} : { unread_count: (convResult.conversation.unread_count || 0) + 1 }),
       updated_at: new Date().toISOString(),
     })
     .eq('id', convResult.conversation.id)
   if (convError) console.error('[evolution-ingest] conversation update error:', convError)
 
-  if (options?.flagBroadcastReply) {
+  // Broadcast-reply flagging means "the customer replied" — meaningless
+  // (and, for a 1:1 thread, actively wrong: contactOutcome.contact is
+  // the customer, not the agent) for a fromMe message.
+  if (options?.flagBroadcastReply && !isOwnMessage) {
     const replyFlagContactId = senderContactId ?? (isGroup ? null : contactOutcome.contact.id)
     if (replyFlagContactId) {
       await flagBroadcastReplyIfAny(accountId, replyFlagContactId)

@@ -144,6 +144,14 @@ async function processEvolutionMessage(
   const result = await upsertEvolutionMessage(config, data, { flagBroadcastReply: true })
   if (!result || !result.inserted) return
 
+  // A fromMe message is either the CRM's own send echoing back (already
+  // fully handled at send time) or one sent directly from the phone —
+  // upsertEvolutionMessage() persists both, but neither should run the
+  // customer-inbound dispatch pipeline below (flows/automations/AI
+  // auto-reply/outbound webhooks): the same reason a backfilled message
+  // never does either.
+  if (data.key.fromMe) return
+
   const { contact, contactWasCreated, conversation, conversationWasCreated, parsed } = result
   const accountId = config.account_id as string
   const configOwnerUserId = config.user_id as string
