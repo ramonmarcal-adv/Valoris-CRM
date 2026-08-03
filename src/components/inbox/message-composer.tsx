@@ -24,6 +24,7 @@ import {
   Zap,
   Clock,
   PenLine,
+  MoreHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GatedButton } from "@/components/ui/gated-button";
@@ -72,6 +73,18 @@ export const MEDIA_CAPTION_MAX = 1024;
 /** Hard cap on a single voice recording so it can't blow the upload/
  *  transcode limits — auto-stops the recorder when reached. */
 const MAX_RECORDING_SECONDS = 5 * 60;
+
+// Icon row collapses into a "more options" overflow menu below these
+// container widths (px, measured on the composer's own root — post p-3
+// padding). Attach and Send/Mic are never collapsed. Order here is also
+// the collapse order: first entry disappears first as space shrinks.
+const COMPOSER_COLLAPSE_BREAKPOINTS = {
+  schedule: 640,
+  aiDraft: 560,
+  template: 480,
+  signature: 420,
+  quickActions: 380,
+} as const;
 
 export interface SendMediaPayload {
   kind: ComposerMediaKind;
@@ -165,6 +178,43 @@ export function MessageComposer({
   const [sending, setSending] = useState(false);
   const [drafting, setDrafting] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Tracks the composer's own width so the icon row can collapse into a
+  // "more options" menu when the panel it's in (e.g. the resizable Kanban
+  // side panel) is narrow. A single ResizeObserver — not CSS container
+  // queries — because DropdownMenuContent renders through a portal to
+  // <body>, outside any @container an ancestor here could declare.
+  const composerRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState<number | null>(null);
+  useEffect(() => {
+    const el = composerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width;
+      if (width) setContainerWidth(width);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  // `containerWidth === null` (pre-first-measurement) defaults to "show
+  // everything" — ResizeObserver's first callback fires within a frame,
+  // so there's nothing meaningful to guard against beyond this default.
+  const showScheduleInline =
+    containerWidth === null || containerWidth >= COMPOSER_COLLAPSE_BREAKPOINTS.schedule;
+  const showAiDraftInline =
+    containerWidth === null || containerWidth >= COMPOSER_COLLAPSE_BREAKPOINTS.aiDraft;
+  const showTemplateInline =
+    containerWidth === null || containerWidth >= COMPOSER_COLLAPSE_BREAKPOINTS.template;
+  const showSignatureInline =
+    containerWidth === null || containerWidth >= COMPOSER_COLLAPSE_BREAKPOINTS.signature;
+  const showQuickActionsInline =
+    containerWidth === null || containerWidth >= COMPOSER_COLLAPSE_BREAKPOINTS.quickActions;
+  const hasOverflowItems =
+    (!!onSchedule && !showScheduleInline) ||
+    !showAiDraftInline ||
+    !showTemplateInline ||
+    (!!onToggleSignature && !showSignatureInline) ||
+    !showQuickActionsInline;
 
   // "Mensagens agendadas" (Área D) — schedule popover state.
   const [scheduleOpen, setScheduleOpen] = useState(false);
@@ -570,7 +620,7 @@ export function MessageComposer({
   // ---- Render --------------------------------------------------------
 
   return (
-    <div className="border-t border-border bg-card p-3">
+    <div ref={composerRef} className="border-t border-border bg-card p-3">
       {replyTo && (
         <div className="mb-2">
           <ReplyQuote
@@ -701,62 +751,68 @@ export function MessageComposer({
 
           {/* + menu — interactive messages + quick replies. Gated on the
               24h window like free-form text (interactive requires it). */}
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              disabled={inputsDisabled}
-              title={
-                readOnly
-                  ? t("readOnlyTitle")
-                  : inputsDisabled
-                    ? undefined
-                    : t("moreActions")
-              }
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md p-0 text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+          {showQuickActionsInline && (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                disabled={inputsDisabled}
+                title={
+                  readOnly
+                    ? t("readOnlyTitle")
+                    : inputsDisabled
+                      ? undefined
+                      : t("moreActions")
+                }
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md p-0 text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Plus className="h-4 w-4" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="border-border bg-popover">
+                <DropdownMenuItem onClick={() => openInteractiveBuilder()}>
+                  <MessageSquareDashed className="mr-2 h-4 w-4" />
+                  {t("interactiveMessage")}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setQuickReplyOpen(true)}>
+                  <Zap className="mr-2 h-4 w-4" />
+                  {t("quickReplies")}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+
+          {showTemplateInline && (
+            <GatedButton
+              variant="ghost"
+              size="sm"
+              canAct={!readOnly}
+              gateReason="send messages"
+              title={readOnly ? undefined : t("sendTemplate")}
+              className="h-9 w-9 shrink-0 p-0 text-muted-foreground hover:text-foreground"
+              onClick={onOpenTemplates}
             >
-              <Plus className="h-4 w-4" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="border-border bg-popover">
-              <DropdownMenuItem onClick={() => openInteractiveBuilder()}>
-                <MessageSquareDashed className="mr-2 h-4 w-4" />
-                {t("interactiveMessage")}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setQuickReplyOpen(true)}>
-                <Zap className="mr-2 h-4 w-4" />
-                {t("quickReplies")}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              <LayoutTemplate className="h-4 w-4" />
+            </GatedButton>
+          )}
 
-          <GatedButton
-            variant="ghost"
-            size="sm"
-            canAct={!readOnly}
-            gateReason="send messages"
-            title={readOnly ? undefined : t("sendTemplate")}
-            className="h-9 w-9 shrink-0 p-0 text-muted-foreground hover:text-foreground"
-            onClick={onOpenTemplates}
-          >
-            <LayoutTemplate className="h-4 w-4" />
-          </GatedButton>
+          {showAiDraftInline && (
+            <GatedButton
+              variant="ghost"
+              size="sm"
+              canAct={!readOnly}
+              gateReason="send messages"
+              disabled={drafting}
+              title={readOnly ? undefined : t("draftWithAI")}
+              className="h-9 w-9 shrink-0 p-0 text-muted-foreground hover:text-primary"
+              onClick={handleDraft}
+            >
+              {drafting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4" />
+              )}
+            </GatedButton>
+          )}
 
-          <GatedButton
-            variant="ghost"
-            size="sm"
-            canAct={!readOnly}
-            gateReason="send messages"
-            disabled={drafting}
-            title={readOnly ? undefined : t("draftWithAI")}
-            className="h-9 w-9 shrink-0 p-0 text-muted-foreground hover:text-primary"
-            onClick={handleDraft}
-          >
-            {drafting ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Sparkles className="h-4 w-4" />
-            )}
-          </GatedButton>
-
-          {onToggleSignature && (
+          {onToggleSignature && showSignatureInline && (
             <button
               type="button"
               disabled={inputsDisabled}
@@ -770,6 +826,65 @@ export function MessageComposer({
             >
               <PenLine className="h-4 w-4" />
             </button>
+          )}
+
+          {hasOverflowItems && (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                disabled={inputsDisabled}
+                title={t("moreOptions")}
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md p-0 text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="border-border bg-popover">
+                {onSchedule && !showScheduleInline && (
+                  <DropdownMenuItem
+                    onClick={() => setScheduleOpen(true)}
+                    disabled={!text.trim() || sessionExpired || readOnly}
+                  >
+                    <Clock className="mr-2 h-4 w-4" />
+                    {t("scheduleSend")}
+                  </DropdownMenuItem>
+                )}
+                {!showAiDraftInline && (
+                  <DropdownMenuItem onClick={handleDraft} disabled={readOnly || drafting}>
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    {t("draftWithAI")}
+                  </DropdownMenuItem>
+                )}
+                {!showTemplateInline && (
+                  <DropdownMenuItem onClick={onOpenTemplates} disabled={readOnly}>
+                    <LayoutTemplate className="mr-2 h-4 w-4" />
+                    {t("sendTemplate")}
+                  </DropdownMenuItem>
+                )}
+                {onToggleSignature && !showSignatureInline && (
+                  <DropdownMenuItem onClick={onToggleSignature} disabled={inputsDisabled}>
+                    <PenLine className="mr-2 h-4 w-4" />
+                    {signatureEnabled ? t("signatureOnTitle") : t("signatureOffTitle")}
+                  </DropdownMenuItem>
+                )}
+                {!showQuickActionsInline && (
+                  <>
+                    <DropdownMenuItem
+                      onClick={() => openInteractiveBuilder()}
+                      disabled={inputsDisabled}
+                    >
+                      <MessageSquareDashed className="mr-2 h-4 w-4" />
+                      {t("interactiveMessage")}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => setQuickReplyOpen(true)}
+                      disabled={inputsDisabled}
+                    >
+                      <Zap className="mr-2 h-4 w-4" />
+                      {t("quickReplies")}
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
 
           <textarea
@@ -791,7 +906,7 @@ export function MessageComposer({
             // The placeholder text also surfaces the read-only state.
             title={readOnly ? t("readOnlyTitle") : undefined}
             className={cn(
-              "flex-1 resize-none rounded-xl border border-border bg-muted px-4 py-2.5 text-sm text-foreground placeholder-muted-foreground outline-none transition-colors focus:border-primary/50",
+              "scrollbar-thin flex-1 resize-none rounded-xl border border-border bg-muted px-4 py-2.5 text-sm text-foreground placeholder-muted-foreground outline-none transition-colors focus:border-primary/50",
               (sessionExpired || readOnly) && "cursor-not-allowed opacity-50"
             )}
           />
@@ -801,7 +916,13 @@ export function MessageComposer({
               <PopoverTrigger
                 disabled={!text.trim() || sessionExpired || readOnly}
                 title={readOnly ? undefined : t("scheduleSend")}
-                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+                className={cn(
+                  "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40",
+                  // Kept mounted (not removed/`hidden`) even when collapsed
+                  // into the overflow menu — floating-ui needs a real
+                  // trigger rect to anchor the popover against.
+                  !showScheduleInline && "sr-only",
+                )}
               >
                 <Clock className="h-4 w-4" />
               </PopoverTrigger>

@@ -127,7 +127,8 @@
   },
   "Inbox": {
     "page": {
-      "whatsappNotConnected": "WhatsApp®이 연결되어 있지 않습니다. 설정으로 이동해 계정을 연결하세요."
+      "whatsappNotConnected": "WhatsApp®이 연결되어 있지 않습니다. 설정으로 이동해 계정을 연결하세요.",
+      "resizeThreadPanel": "대화 패널 크기 조절"
     },
     "conversationList": {
       "searchPlaceholder": "대화 검색...",
@@ -209,6 +210,7 @@
       "matchCount": "{total}개 중 {current}번째",
       "previousMatch": "이전 결과",
       "nextMatch": "다음 결과",
+      "jumpToLatest": "최신 메시지로 이동",
       "scheduleFailed": "메시지 예약에 실패했습니다",
       "signatureToggleFailed": "이 대화의 서명 설정을 저장하지 못했습니다",
       "scheduleSuccess": "메시지가 예약되었습니다"
@@ -242,6 +244,7 @@
       "addCaption": "캡션 추가…",
       "removeAttachment": "첨부 파일 제거",
       "moreActions": "더보기",
+      "moreOptions": "추가 옵션",
       "interactiveMessage": "인터랙티브 메시지",
       "quickReplies": "빠른 답장",
       "quickRepliesEmpty": "아직 빠른 답장이 없습니다. 설정 → 빠른 답장에서 추가하세요.",

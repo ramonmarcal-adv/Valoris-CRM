@@ -26,6 +26,7 @@ import {
   Check,
   Clock,
   ArrowLeft,
+  ArrowDown,
   RefreshCw,
   PanelRightOpen,
   PanelRightClose,
@@ -594,16 +595,28 @@ export function MessageThread({
   // branch in inbox/page.tsx) doesn't yank the view back down while
   // someone is reading older history further up.
   const wasNearBottomRef = useRef(true);
+  // Drives the floating "jump to latest" button — a plain ref wouldn't
+  // trigger a re-render, so this mirrors wasNearBottomRef into state.
+  const [showJumpToLatest, setShowJumpToLatest] = useState(false);
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     const handleScroll = () => {
       const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-      wasNearBottomRef.current = distanceFromBottom < 150;
+      const nearBottom = distanceFromBottom < 150;
+      wasNearBottomRef.current = nearBottom;
+      setShowJumpToLatest(!nearBottom);
     };
     el.addEventListener("scroll", handleScroll);
     return () => el.removeEventListener("scroll", handleScroll);
   }, [conversationId]);
+
+  const handleJumpToLatest = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    setShowJumpToLatest(false);
+  }, []);
 
   // Auto-scroll to bottom — only when a message was actually appended
   // (messages.length grew) and the user was already near the bottom, or
@@ -621,6 +634,7 @@ export function MessageThread({
     prevConversationIdForScrollRef.current = conversationId;
     if (conversationChanged || wasNearBottomRef.current) {
       el.scrollTop = el.scrollHeight;
+      setShowJumpToLatest(false);
     }
   }, [messagesLength, conversationId]);
 
@@ -1448,7 +1462,8 @@ export function MessageThread({
       )}
 
       {/* Messages Area */}
-      <div ref={scrollRef} className="scrollbar-thin flex-1 overflow-x-hidden overflow-y-auto px-4 py-4">
+      <div className="relative min-h-0 flex-1">
+      <div ref={scrollRef} className="scrollbar-thin absolute inset-0 overflow-x-hidden overflow-y-auto px-4 py-4">
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -1525,6 +1540,17 @@ export function MessageThread({
             ))}
           </div>
         )}
+      </div>
+      {showJumpToLatest && (
+        <button
+          type="button"
+          onClick={handleJumpToLatest}
+          aria-label={t("jumpToLatest")}
+          className="absolute bottom-4 right-4 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-lg transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <ArrowDown className="h-4 w-4" />
+        </button>
+      )}
       </div>
 
       {/* AI auto-reply banner — take over an active bot, or resume it

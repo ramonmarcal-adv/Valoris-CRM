@@ -127,7 +127,8 @@
   },
   "Inbox": {
     "page": {
-      "whatsappNotConnected": "WhatsApp® is not connected. Go to Settings to connect your account."
+      "whatsappNotConnected": "WhatsApp® is not connected. Go to Settings to connect your account.",
+      "resizeThreadPanel": "Resize conversation panel"
     },
     "conversationList": {
       "searchPlaceholder": "Search conversations...",
@@ -209,6 +210,7 @@
       "matchCount": "{current} of {total}",
       "previousMatch": "Previous match",
       "nextMatch": "Next match",
+      "jumpToLatest": "Jump to latest message",
       "scheduleFailed": "Failed to schedule message",
       "signatureToggleFailed": "Couldn't save your signature preference for this conversation",
       "scheduleSuccess": "Message scheduled"
@@ -242,6 +244,7 @@
       "addCaption": "Add a caption…",
       "removeAttachment": "Remove attachment",
       "moreActions": "More",
+      "moreOptions": "More options",
       "interactiveMessage": "Interactive message",
       "quickReplies": "Quick replies",
       "quickRepliesEmpty": "No quick replies yet. Add some in Settings → Quick replies.",

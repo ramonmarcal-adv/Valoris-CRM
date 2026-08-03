@@ -127,7 +127,8 @@
   },
   "Inbox": {
     "page": {
-      "whatsappNotConnected": "O WhatsApp® não está conectado. Acesse Configurações para conectar sua conta."
+      "whatsappNotConnected": "O WhatsApp® não está conectado. Acesse Configurações para conectar sua conta.",
+      "resizeThreadPanel": "Redimensionar painel da conversa"
     },
     "conversationList": {
       "searchPlaceholder": "Buscar conversas...",
@@ -209,6 +210,7 @@
       "matchCount": "{current} de {total}",
       "previousMatch": "Resultado anterior",
       "nextMatch": "Próximo resultado",
+      "jumpToLatest": "Ir para a última mensagem",
       "scheduleFailed": "Falha ao agendar mensagem",
       "signatureToggleFailed": "Não foi possível salvar a preferência de assinatura desta conversa",
       "scheduleSuccess": "Mensagem agendada"
@@ -242,6 +244,7 @@
       "addCaption": "Adicionar legenda…",
       "removeAttachment": "Remover anexo",
       "moreActions": "Mais",
+      "moreOptions": "Mais opções",
       "interactiveMessage": "Mensagem interativa",
       "quickReplies": "Respostas rápidas",
       "quickRepliesEmpty": "Ainda sem respostas rápidas. Adicione em Configurações → Respostas rápidas.",

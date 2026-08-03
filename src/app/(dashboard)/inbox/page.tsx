@@ -25,6 +25,7 @@ import { MessageThread } from "@/components/inbox/message-thread";
 import { ContactSidebar } from "@/components/inbox/contact-sidebar";
 import { PipelineSettings } from "@/components/pipelines/pipeline-settings";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { useResizablePanelWidth } from "@/hooks/use-resizable-panel-width";
 import { moveDealToStage } from "@/lib/deals/move-deal";
 import { toast } from "sonner";
 import { WifiOff, List, Kanban as KanbanIcon, ChevronDown, GitBranch, Settings } from "lucide-react";
@@ -45,6 +46,8 @@ const CONTACT_PANEL_STORAGE_KEY = "wacrm:inbox:contact-panel-open";
 // organizing axis now, and `conversations.status` is still readable/
 // writable via the thread header's status dropdown.
 const VIEW_MODE_STORAGE_KEY = "wacrm:inbox:view-mode";
+// Remembers the agent's drag-resized width for the Kanban thread panel.
+const KANBAN_THREAD_WIDTH_STORAGE_KEY = "wacrm:inbox:kanban-thread-width";
 const NO_PIPELINE_COLUMN_ID = "__no_pipeline__";
 const GROUPS_COLUMN_ID = "__groups__";
 
@@ -1025,6 +1028,18 @@ function InboxPageInner() {
   // instead of switching away to the List/thread layout — the agent
   // replies without losing their place on the board (LeilãoDesk spec).
   const [kanbanThreadOpen, setKanbanThreadOpen] = useState(false);
+  // Resizable by dragging the panel's left edge — floor rises when the
+  // contact panel (below) is also open, so the thread itself never gets
+  // crushed under the sidebar's fixed 384px width.
+  const {
+    width: kanbanSheetWidth,
+    isDragging: kanbanSheetResizing,
+    handleProps: kanbanSheetResizeHandleProps,
+  } = useResizablePanelWidth({
+    defaultWidth: 880,
+    minWidth: contactPanelOpen ? 820 : 480,
+    storageKey: KANBAN_THREAD_WIDTH_STORAGE_KEY,
+  });
   const handleBoardCardSelect = useCallback(
     (conv: Conversation) => {
       handleSelectConversation(conv);
@@ -1270,25 +1285,62 @@ function InboxPageInner() {
 
       {/* Kanban card click opens the thread here instead of switching to
           the List layout — the board stays exactly where the agent left
-          it underneath. No ContactSidebar in this narrower drawer; the
-          usual List/thread layout above still has the full 3-pane view. */}
+          it underneath. Resizable (drag the left edge) and mirrors the
+          full-page layout's contact-panel toggle for parity — same
+          `contactPanelOpen` state/preference, one agent, one browser. */}
       <Sheet open={kanbanThreadOpen} onOpenChange={setKanbanThreadOpen}>
-        <SheetContent side="right" className="w-full gap-0 p-0 sm:max-w-2xl">
-          {activeConversation && (
-            <MessageThread
-              conversation={activeConversation}
-              contact={activeContact}
-              messages={messages}
-              onMessagesLoaded={handleMessagesLoaded}
-              onNewMessage={handleNewMessage}
-              onUpdateMessage={handleUpdateMessage}
-              onStatusChange={handleStatusChange}
-              onAssignChange={handleAssignChange}
-              onBack={() => setKanbanThreadOpen(false)}
-              resyncToken={resyncToken}
-              onRefresh={handleManualRefresh}
-              activeProvider={activeProvider}
+        <SheetContent
+          side="right"
+          className="w-full gap-0 p-0"
+          style={{ width: kanbanSheetWidth, maxWidth: "95vw" }}
+        >
+          {/* Resize handle — hidden below sm: the panel is edge-to-edge
+              on mobile, where dragging makes no sense. */}
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label={t("resizeThreadPanel")}
+            tabIndex={0}
+            className="group absolute inset-y-0 left-0 z-10 hidden w-1.5 -translate-x-1/2 cursor-col-resize touch-none select-none outline-none sm:block"
+            {...kanbanSheetResizeHandleProps}
+          >
+            <div
+              className={cn(
+                "absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border transition-colors group-hover:bg-primary group-focus-visible:bg-primary",
+                kanbanSheetResizing && "bg-primary",
+              )}
             />
+          </div>
+          {activeConversation && (
+            <div className="flex h-full min-h-0 min-w-0 flex-1 overflow-hidden">
+              <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+                <MessageThread
+                  conversation={activeConversation}
+                  contact={activeContact}
+                  messages={messages}
+                  onMessagesLoaded={handleMessagesLoaded}
+                  onNewMessage={handleNewMessage}
+                  onUpdateMessage={handleUpdateMessage}
+                  onStatusChange={handleStatusChange}
+                  onAssignChange={handleAssignChange}
+                  onBack={() => setKanbanThreadOpen(false)}
+                  resyncToken={resyncToken}
+                  onRefresh={handleManualRefresh}
+                  contactPanelOpen={contactPanelOpen}
+                  onToggleContactPanel={handleToggleContactPanel}
+                  activeProvider={activeProvider}
+                />
+              </div>
+              {contactPanelOpen && (
+                <div className="hidden h-full lg:flex">
+                  <ContactSidebar
+                    contact={activeContact}
+                    conversation={activeConversation}
+                    onConversationDeleted={handleConversationDeleted}
+                  />
+                </div>
+              )}
+            </div>
           )}
         </SheetContent>
       </Sheet>

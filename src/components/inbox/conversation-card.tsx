@@ -45,8 +45,12 @@ export function ConversationCard({
     : "";
 
   const card = (
-    <button
-      type="button"
+    // A plain <div role="button"> rather than <button> — the bulk-select
+    // Checkbox below is an interactive, tabIndex-bearing descendant, which
+    // is invalid inside a real <button> element.
+    <div
+      role="button"
+      tabIndex={isOverlay ? -1 : 0}
       onClick={(e) => {
         // Mirrors DealCard: PointerSensor requires 5px movement before a
         // drag registers, so a plain tap still reaches this handler.
@@ -54,11 +58,19 @@ export function ConversationCard({
         e.stopPropagation();
         onSelect(conversation);
       }}
+      onKeyDown={(e) => {
+        if (isOverlay) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          e.stopPropagation();
+          onSelect(conversation);
+        }
+      }}
       className={cn(
-        "group relative w-full cursor-pointer rounded-xl border border-border/50 bg-muted/70 px-3 py-3 text-left shadow-sm transition-all",
+        "group relative w-full cursor-pointer rounded-xl border border-border/50 bg-muted/70 px-3 py-3 text-left shadow-sm outline-none transition-all",
         isOverlay
           ? "shadow-xl"
-          : "hover:-translate-y-0.5 hover:border-border hover:bg-muted hover:shadow-lg",
+          : "hover:-translate-y-0.5 hover:border-border hover:bg-muted hover:shadow-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         selected && "border-primary/60 bg-primary/5",
       )}
     >
@@ -129,7 +141,7 @@ export function ConversationCard({
           <span className="text-[11px] text-muted-foreground">{timeAgo}</span>
         </div>
       </div>
-    </button>
+    </div>
   );
 
   if (isOverlay || !profiles || !onConversationChanged) return card;
