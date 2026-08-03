@@ -162,19 +162,14 @@
     "board": {
       "viewList": "Lista",
       "viewKanban": "Kanban",
-      "groupByLabel": "Agrupar por",
-      "groupByStatus": "Status",
-      "groupByPipeline": "Pipeline",
       "noPipeline": "Sem negócio neste pipeline",
       "selectPipelinePlaceholder": "Selecionar pipeline",
       "noPipelinesYet": "Nenhum pipeline ainda",
       "dropConversationHere": "Solte uma conversa aqui",
       "noDealToMoveHint": "Este contato não tem negócio neste pipeline",
-      "toastFailedMoveConversation": "Falha ao atualizar a conversa",
       "toastFailedMoveDeal": "Falha ao mover o negócio",
       "toastCannotMoveToNoPipeline": "Não dá pra soltar um card aqui — esta coluna só mostra contatos sem negócio nesta pipeline. Pra tirar um contato da pipeline, edite ou desvincule o negócio dele.",
-      "configureStages": "Configurar colunas",
-      "configureStagesDisabledHint": "Disponível apenas ao agrupar por pipeline"
+      "configureStages": "Configurar colunas"
     },
     "messageThread": {
       "backToConversations": "Voltar às conversas",

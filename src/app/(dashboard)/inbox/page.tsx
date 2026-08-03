@@ -37,14 +37,15 @@ import {
 // Remembers the agent's show/hide choice for the desktop contact panel
 // across reloads and sessions (device-scoped, like the theme prefs).
 const CONTACT_PANEL_STORAGE_KEY = "wacrm:inbox:contact-panel-open";
-// Remembers the agent's List/Kanban choice and, within Kanban, whether
-// columns group by conversation status or by pipeline stage.
+// Remembers the agent's List/Kanban choice. Kanban always groups by
+// pipeline stage — a status-grouped view existed previously but was
+// removed (LeilãoDesk spec, 2026-08-03): pipeline is the single
+// organizing axis now, and `conversations.status` is still readable/
+// writable via the thread header's status dropdown.
 const VIEW_MODE_STORAGE_KEY = "wacrm:inbox:view-mode";
-const GROUP_BY_STORAGE_KEY = "wacrm:inbox:kanban-group-by";
 const NO_PIPELINE_COLUMN_ID = "__no_pipeline__";
 
 type InboxViewMode = "list" | "kanban";
-type KanbanGroupBy = "status" | "pipeline";
 
 /** Lean shape for the pipeline-grouping board — avoids the full `Deal`
  *  select (contact/assignee joins) the Pipelines page needs. */
@@ -68,7 +69,6 @@ export default function InboxPage() {
 function InboxPageInner() {
   const t = useTranslations("Inbox.page");
   const tBoard = useTranslations("Inbox.board");
-  const tStatus = useTranslations("Inbox.messageThread");
   const router = useRouter();
   const searchParams = useSearchParams();
   /**
@@ -695,13 +695,10 @@ function InboxPageInner() {
   // the same hydration-safety reason as contactPanelOpen above.
   // ─────────────────────────────────────────────────────────────
   const [viewMode, setViewMode] = useState<InboxViewMode>("list");
-  const [groupBy, setGroupBy] = useState<KanbanGroupBy>("status");
   useEffect(() => {
     try {
       const storedView = localStorage.getItem(VIEW_MODE_STORAGE_KEY);
       if (storedView === "list" || storedView === "kanban") setViewMode(storedView);
-      const storedGroup = localStorage.getItem(GROUP_BY_STORAGE_KEY);
-      if (storedGroup === "status" || storedGroup === "pipeline") setGroupBy(storedGroup);
     } catch {
       // localStorage can throw in private-browsing / sandboxed contexts.
     }
@@ -716,17 +713,8 @@ function InboxPageInner() {
     }
   }, []);
 
-  const handleGroupByChange = useCallback((mode: KanbanGroupBy) => {
-    setGroupBy(mode);
-    try {
-      localStorage.setItem(GROUP_BY_STORAGE_KEY, mode);
-    } catch {
-      // Persistence is best-effort; ignore storage failures.
-    }
-  }, []);
-
-  // Pipeline data is only needed for the "group by pipeline" board, so it's
-  // loaded lazily rather than unconditionally on every inbox visit.
+  // Pipeline data is only needed for the Kanban board, so it's loaded
+  // lazily rather than unconditionally on every inbox visit.
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [selectedPipelineId, setSelectedPipelineId] = useState<string>("");
   const [pipelineStages, setPipelineStages] = useState<PipelineStage[]>([]);
@@ -756,7 +744,7 @@ function InboxPageInner() {
   }, []);
 
   useEffect(() => {
-    if (viewMode !== "kanban" || groupBy !== "pipeline" || pipelines.length > 0) return;
+    if (viewMode !== "kanban" || pipelines.length > 0) return;
     let cancelled = false;
     (async () => {
       const supabase = createClient();
@@ -769,10 +757,10 @@ function InboxPageInner() {
     return () => {
       cancelled = true;
     };
-  }, [viewMode, groupBy, pipelines.length]);
+  }, [viewMode, pipelines.length]);
 
   useEffect(() => {
-    if (viewMode !== "kanban" || groupBy !== "pipeline" || !selectedPipelineId) return;
+    if (viewMode !== "kanban" || !selectedPipelineId) return;
     let cancelled = false;
     (async () => {
       const supabase = createClient();
@@ -797,7 +785,7 @@ function InboxPageInner() {
     return () => {
       cancelled = true;
     };
-  }, [viewMode, groupBy, selectedPipelineId, stagesRefetchToken]);
+  }, [viewMode, selectedPipelineId, stagesRefetchToken]);
 
   // A contact can have more than one deal in the same pipeline (repeat
   // customer); we bucket the conversation under the most-recently-updated
@@ -811,15 +799,6 @@ function InboxPageInner() {
     return map;
   }, [pipelineDeals]);
 
-  const statusColumns: ConversationBoardColumn[] = useMemo(
-    () => [
-      { id: "open", title: tStatus("statusOpen"), color: "var(--primary)" },
-      { id: "pending", title: tStatus("statusPending"), color: "#f59e0b" },
-      { id: "closed", title: tStatus("statusClosed"), color: "var(--muted-foreground)" },
-    ],
-    [tStatus],
-  );
-
   const pipelineColumns: ConversationBoardColumn[] = useMemo(() => {
     const sorted = [...pipelineStages].sort((a, b) => a.position - b.position);
     return [
@@ -827,15 +806,6 @@ function InboxPageInner() {
       { id: NO_PIPELINE_COLUMN_ID, title: tBoard("noPipeline") },
     ];
   }, [pipelineStages, tBoard]);
-
-  const conversationsByStatusColumn = useMemo(() => {
-    const map = new Map<string, Conversation[]>();
-    for (const col of statusColumns) map.set(col.id, []);
-    for (const conv of conversations) {
-      map.get(conv.status)?.push(conv);
-    }
-    return map;
-  }, [statusColumns, conversations]);
 
   const conversationsByPipelineColumn = useMemo(() => {
     const map = new Map<string, Conversation[]>();
@@ -854,47 +824,10 @@ function InboxPageInner() {
     [bestDealByContactId, tBoard],
   );
 
-  // Status-grouping drag: persist straight to `conversations.status`,
-  // mirroring the thread header's status dropdown.
-  const handleConversationStatusMoved = useCallback(
-    async (conversationId: string, newStatus: string) => {
-      const status = newStatus as ConversationStatus;
-      let previousStatus: ConversationStatus | undefined;
-      setConversations((prev) =>
-        prev.map((c) => {
-          if (c.id !== conversationId) return c;
-          previousStatus = c.status;
-          return { ...c, status };
-        }),
-      );
-      if (activeConversation?.id === conversationId) {
-        setActiveConversation((prev) => (prev ? { ...prev, status } : prev));
-      }
-
-      const supabase = createClient();
-      const { error } = await supabase
-        .from("conversations")
-        .update({ status })
-        .eq("id", conversationId);
-
-      if (error && previousStatus) {
-        toast.error(tBoard("toastFailedMoveConversation"));
-        const revertTo = previousStatus;
-        setConversations((prev) =>
-          prev.map((c) => (c.id === conversationId ? { ...c, status: revertTo } : c)),
-        );
-        if (activeConversation?.id === conversationId) {
-          setActiveConversation((prev) => (prev ? { ...prev, status: revertTo } : prev));
-        }
-      }
-    },
-    [activeConversation, tBoard],
-  );
-
-  // Pipeline-grouping drag: the card represents a conversation, but the
-  // move mutates the linked deal's `stage_id` — same write path (and same
-  // shared helper) the Pipelines board itself uses, so moving a deal via
-  // either board stays consistent.
+  // The card represents a conversation, but the move mutates the linked
+  // deal's `stage_id` — same write path (and same shared helper) the
+  // Pipelines board itself uses, so moving a deal via either board stays
+  // consistent.
   const handleConversationDealMoved = useCallback(
     async (conversationId: string, newStageId: string) => {
       // "Sem Pipeline"/no-deal-in-this-pipeline isn't a real stage — a
@@ -930,13 +863,9 @@ function InboxPageInner() {
 
   const handleBoardMove = useCallback(
     (conversationId: string, _fromColumnId: string, toColumnId: string) => {
-      if (groupBy === "status") {
-        handleConversationStatusMoved(conversationId, toColumnId);
-      } else {
-        handleConversationDealMoved(conversationId, toColumnId);
-      }
+      handleConversationDealMoved(conversationId, toColumnId);
     },
-    [groupBy, handleConversationStatusMoved, handleConversationDealMoved],
+    [handleConversationDealMoved],
   );
 
   // Kanban is a triage view, not a second place to read the thread — a
@@ -1006,34 +935,7 @@ function InboxPageInner() {
 
         {viewMode === "kanban" && (
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-0.5">
-              <button
-                type="button"
-                onClick={() => handleGroupByChange("status")}
-                className={cn(
-                  "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
-                  groupBy === "status"
-                    ? "bg-muted text-foreground"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {tBoard("groupByStatus")}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleGroupByChange("pipeline")}
-                className={cn(
-                  "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
-                  groupBy === "pipeline"
-                    ? "bg-muted text-foreground"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {tBoard("groupByPipeline")}
-              </button>
-            </div>
-
-            {groupBy === "pipeline" && pipelines.length > 0 && (
+            {pipelines.length > 0 && (
               <DropdownMenu>
                 <DropdownMenuTrigger className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs text-foreground transition-colors hover:bg-muted data-[popup-open]:bg-muted">
                   <GitBranch className="h-3.5 w-3.5 text-primary" />
@@ -1055,18 +957,12 @@ function InboxPageInner() {
               </DropdownMenu>
             )}
 
-            {/* Configure kanban columns right here, without leaving the
-                Inbox — only meaningful when grouped by pipeline; status
-                columns are a fixed 3-value enum with nothing to edit. */}
+            {/* Configure kanban columns right here, without leaving the Inbox. */}
             <button
               type="button"
               onClick={() => setPipelineSettingsOpen(true)}
-              disabled={groupBy !== "pipeline" || pipelines.length === 0}
-              title={
-                groupBy === "pipeline"
-                  ? tBoard("configureStages")
-                  : tBoard("configureStagesDisabledHint")
-              }
+              disabled={pipelines.length === 0}
+              title={tBoard("configureStages")}
               className="inline-flex items-center justify-center rounded-lg border border-border bg-card p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
             >
               <Settings className="h-3.5 w-3.5" />
@@ -1096,19 +992,17 @@ function InboxPageInner() {
 
       {viewMode === "kanban" ? (
         <div className="flex-1 overflow-hidden p-3">
-          {groupBy === "pipeline" && pipelines.length === 0 ? (
+          {pipelines.length === 0 ? (
             <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
               {tBoard("noPipelinesYet")}
             </div>
           ) : (
             <ConversationBoard
-              columns={groupBy === "status" ? statusColumns : pipelineColumns}
-              conversationsByColumn={
-                groupBy === "status" ? conversationsByStatusColumn : conversationsByPipelineColumn
-              }
+              columns={pipelineColumns}
+              conversationsByColumn={conversationsByPipelineColumn}
               onSelect={handleBoardCardSelect}
               onMove={handleBoardMove}
-              getDisabledHint={groupBy === "pipeline" ? getPipelineDragHint : undefined}
+              getDisabledHint={getPipelineDragHint}
               emptyColumnHint={tBoard("dropConversationHere")}
               profiles={profiles}
               onConversationChanged={handleConversationChanged}

@@ -162,19 +162,14 @@
     "board": {
       "viewList": "List",
       "viewKanban": "Kanban",
-      "groupByLabel": "Group by",
-      "groupByStatus": "Status",
-      "groupByPipeline": "Pipeline",
       "noPipeline": "No deal in this pipeline",
       "selectPipelinePlaceholder": "Select pipeline",
       "noPipelinesYet": "No pipelines yet",
       "dropConversationHere": "Drop a conversation here",
       "noDealToMoveHint": "This contact has no deal in this pipeline",
-      "toastFailedMoveConversation": "Failed to update conversation",
       "toastFailedMoveDeal": "Failed to move deal",
       "toastCannotMoveToNoPipeline": "You can't drop a card here — this column just shows contacts with no deal in this pipeline. To move a contact out of the pipeline, edit or unlink their deal instead.",
-      "configureStages": "Configure columns",
-      "configureStagesDisabledHint": "Only available when grouped by pipeline"
+      "configureStages": "Configure columns"
     },
     "messageThread": {
       "backToConversations": "Back to conversations",

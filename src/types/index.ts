@@ -199,10 +199,13 @@ export interface Conversation {
   is_favorite: boolean;
   is_archived: boolean;
   is_muted: boolean;
-  /** Groundwork for a future non-Meta WhatsApp integration (migration 044)
-   *  — always false today since the Cloud API can't ingest group chats.
-   *  `group_participant_count` has no writer yet; treat as absent even
-   *  when `is_group` is true. */
+  /** True for a WhatsApp group conversation. Added as groundwork in
+   *  migration 044 (still always false for Meta Cloud API conversations,
+   *  which can't ingest group chats at all), then actually populated once
+   *  Evolution API group support shipped (migration 049) — set by
+   *  `markConversationAsGroup` in evolution-ingest.ts, both on first
+   *  ingest and during history sync. `group_participant_count` is written
+   *  by that same function. */
   is_group: boolean;
   group_participant_count?: number;
   /**
