@@ -49,13 +49,6 @@ interface ConversationListProps {
   onConversationChanged: (conversationId: string, patch: Partial<Conversation>) => void;
 }
 
-export const STATUS_COLORS: Record<ConversationStatus, string> = {
-  open: "bg-primary",
-  pending: "bg-amber-500",
-  closed: "bg-muted-foreground",
-};
-
-
 
 type InboxFilter =
   | ConversationStatus

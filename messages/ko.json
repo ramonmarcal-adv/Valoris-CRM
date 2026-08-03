@@ -163,12 +163,15 @@
       "viewList": "목록",
       "viewKanban": "칸반",
       "noPipeline": "이 파이프라인에 거래 없음",
+      "groupsColumn": "그룹",
       "selectPipelinePlaceholder": "파이프라인 선택",
       "noPipelinesYet": "아직 파이프라인이 없습니다",
       "dropConversationHere": "대화를 여기에 놓으세요",
       "noDealToMoveHint": "이 연락처는 이 파이프라인에 거래가 없습니다",
+      "groupsNotDraggableHint": "WhatsApp 그룹은 자동으로 거래가 되지 않습니다 — 필요하면 파이프라인 화면에서 직접 만드세요",
       "toastFailedMoveDeal": "거래 이동에 실패했습니다",
       "toastCannotMoveToNoPipeline": "여기에는 카드를 놓을 수 없습니다 — 이 열은 이 파이프라인에 거래가 없는 연락처를 보여줄 뿐입니다. 연락처를 파이프라인에서 빼려면 거래를 수정하거나 연결을 해제하세요.",
+      "toastCannotMoveToGroups": "여기에는 카드를 놓을 수 없습니다 — 이 열은 거래로 취급되지 않는 WhatsApp 그룹 전용입니다.",
       "configureStages": "열 구성"
     },
     "messageThread": {

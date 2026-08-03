@@ -163,12 +163,15 @@
       "viewList": "Lista",
       "viewKanban": "Kanban",
       "noPipeline": "Sem negócio neste pipeline",
+      "groupsColumn": "Grupos",
       "selectPipelinePlaceholder": "Selecionar pipeline",
       "noPipelinesYet": "Nenhum pipeline ainda",
       "dropConversationHere": "Solte uma conversa aqui",
       "noDealToMoveHint": "Este contato não tem negócio neste pipeline",
+      "groupsNotDraggableHint": "Grupos do WhatsApp não viram negócio automaticamente — crie um na tela de Pipelines se precisar",
       "toastFailedMoveDeal": "Falha ao mover o negócio",
       "toastCannotMoveToNoPipeline": "Não dá pra soltar um card aqui — esta coluna só mostra contatos sem negócio nesta pipeline. Pra tirar um contato da pipeline, edite ou desvincule o negócio dele.",
+      "toastCannotMoveToGroups": "Não dá pra soltar um card aqui — esta coluna é só pra grupos do WhatsApp, que não viram negócio.",
       "configureStages": "Configurar colunas"
     },
     "messageThread": {

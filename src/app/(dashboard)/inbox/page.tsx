@@ -44,6 +44,7 @@ const CONTACT_PANEL_STORAGE_KEY = "wacrm:inbox:contact-panel-open";
 // writable via the thread header's status dropdown.
 const VIEW_MODE_STORAGE_KEY = "wacrm:inbox:view-mode";
 const NO_PIPELINE_COLUMN_ID = "__no_pipeline__";
+const GROUPS_COLUMN_ID = "__groups__";
 
 type InboxViewMode = "list" | "kanban";
 
@@ -803,6 +804,7 @@ function InboxPageInner() {
     const sorted = [...pipelineStages].sort((a, b) => a.position - b.position);
     return [
       ...sorted.map((s) => ({ id: s.id, title: s.name, color: s.color })),
+      { id: GROUPS_COLUMN_ID, title: tBoard("groupsColumn") },
       { id: NO_PIPELINE_COLUMN_ID, title: tBoard("noPipeline") },
     ];
   }, [pipelineStages, tBoard]);
@@ -811,6 +813,16 @@ function InboxPageInner() {
     const map = new Map<string, Conversation[]>();
     for (const col of pipelineColumns) map.set(col.id, []);
     for (const conv of conversations) {
+      // Groups never get an auto-created deal (see ensure-default-deal.ts)
+      // and aren't sales leads in the same sense a 1:1 contact is — they
+      // get their own column instead of being indistinguishable from
+      // stray no-deal conversations in "Sem negócio neste pipeline".
+      // Checked before the deal lookup so a manually-created deal for a
+      // group (an edge case, not a supported flow) doesn't move it out.
+      if (conv.is_group) {
+        map.get(GROUPS_COLUMN_ID)?.push(conv);
+        continue;
+      }
       const deal = bestDealByContactId.get(conv.contact_id);
       const columnId = deal && map.has(deal.stage_id) ? deal.stage_id : NO_PIPELINE_COLUMN_ID;
       map.get(columnId)?.push(conv);
@@ -819,8 +831,10 @@ function InboxPageInner() {
   }, [pipelineColumns, conversations, bestDealByContactId]);
 
   const getPipelineDragHint = useCallback(
-    (conv: Conversation) =>
-      bestDealByContactId.has(conv.contact_id) ? undefined : tBoard("noDealToMoveHint"),
+    (conv: Conversation) => {
+      if (conv.is_group) return tBoard("groupsNotDraggableHint");
+      return bestDealByContactId.has(conv.contact_id) ? undefined : tBoard("noDealToMoveHint");
+    },
     [bestDealByContactId, tBoard],
   );
 
@@ -838,6 +852,10 @@ function InboxPageInner() {
       // the agent why instead.
       if (newStageId === NO_PIPELINE_COLUMN_ID) {
         toast.error(tBoard("toastCannotMoveToNoPipeline"));
+        return;
+      }
+      if (newStageId === GROUPS_COLUMN_ID) {
+        toast.error(tBoard("toastCannotMoveToGroups"));
         return;
       }
       const conv = conversations.find((c) => c.id === conversationId);

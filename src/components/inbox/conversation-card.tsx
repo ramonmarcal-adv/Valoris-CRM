@@ -6,7 +6,6 @@ import { formatDistanceToNow } from "date-fns";
 import { useTranslations } from "next-intl";
 import { useDateFnsLocale } from "@/lib/date-locale";
 import { Pin } from "lucide-react";
-import { STATUS_COLORS } from "./conversation-list";
 import { ConversationContextMenu } from "./conversation-context-menu";
 
 interface ConversationCardProps {
@@ -83,10 +82,6 @@ export function ConversationCard({
             <span className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">
               {displayName}
             </span>
-            <span
-              className={cn("h-2 w-2 shrink-0 rounded-full", STATUS_COLORS[conversation.status])}
-              title={conversation.status}
-            />
           </div>
           <p className="mt-0.5 truncate text-xs text-muted-foreground">
             {conversation.last_message_text || t("noMessagesYet")}

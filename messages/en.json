@@ -163,12 +163,15 @@
       "viewList": "List",
       "viewKanban": "Kanban",
       "noPipeline": "No deal in this pipeline",
+      "groupsColumn": "Groups",
       "selectPipelinePlaceholder": "Select pipeline",
       "noPipelinesYet": "No pipelines yet",
       "dropConversationHere": "Drop a conversation here",
       "noDealToMoveHint": "This contact has no deal in this pipeline",
+      "groupsNotDraggableHint": "WhatsApp groups aren't tracked as deals — create one by hand from Pipelines if you need to",
       "toastFailedMoveDeal": "Failed to move deal",
       "toastCannotMoveToNoPipeline": "You can't drop a card here — this column just shows contacts with no deal in this pipeline. To move a contact out of the pipeline, edit or unlink their deal instead.",
+      "toastCannotMoveToGroups": "You can't drop a card here — this column is just for WhatsApp groups, which aren't tracked as deals.",
       "configureStages": "Configure columns"
     },
     "messageThread": {
