@@ -1,4 +1,4 @@
-import type { Conversation, Contact, Tag } from "@/types";
+import type { Conversation, Contact, ConversationStatus, Tag } from "@/types";
 
 /**
  * Conversation select that embeds the contact plus its tags, so the Inbox
@@ -92,4 +92,102 @@ export function matchesReminderFilter(
   if (filter === "manual") return manualReminderConvIds.has(conversation.id);
   if (filter === "automated") return automatedReminderConvIds.has(conversation.id);
   return true;
+}
+
+// ============================================================
+// Shared filter criteria — lifted to inbox/page.tsx (2026-08-03) so
+// the same search/type/assignment/tag/company/reminder filters apply
+// in both the List and the Kanban board, instead of being List-only.
+// ============================================================
+
+export type InboxTypeFilter =
+  | ConversationStatus
+  | "all"
+  | "unread"
+  | "favorites"
+  | "groups"
+  | "reminders"
+  | "manualReminders"
+  | "automatedReminders";
+
+/** Independent from {@link InboxTypeFilter} — combines by AND, same as
+ *  the tag/company filters below. */
+export type InboxAssignmentFilter = "all" | "mine" | "unassigned";
+
+export interface InboxFilterCriteria {
+  typeFilter: InboxTypeFilter;
+  assignmentFilter: InboxAssignmentFilter;
+  currentUserId: string | null | undefined;
+  search: string;
+  tagIds: string[];
+  company: string | null;
+  manualReminderConvIds: Set<string>;
+  automatedReminderConvIds: Set<string>;
+}
+
+/**
+ * Applies every Inbox filter criterion — type/status, assignment
+ * scope, contact tags/company, reminder presence, and free-text
+ * search — in one pass. Does NOT sort; List and Kanban each apply
+ * their own ordering afterward (pinned-first for List, per-column
+ * sort mode for Kanban).
+ */
+export function applyInboxFilters(
+  conversations: Conversation[],
+  criteria: InboxFilterCriteria,
+): Conversation[] {
+  const {
+    typeFilter,
+    assignmentFilter,
+    currentUserId,
+    search,
+    tagIds,
+    company,
+    manualReminderConvIds,
+    automatedReminderConvIds,
+  } = criteria;
+
+  let result = conversations.filter((c) => !c.is_archived);
+
+  if (typeFilter === "unread") {
+    result = result.filter((c) => c.unread_count > 0);
+  } else if (typeFilter === "favorites") {
+    result = result.filter((c) => c.is_favorite);
+  } else if (typeFilter === "groups") {
+    result = result.filter((c) => c.is_group);
+  } else if (
+    typeFilter === "reminders" ||
+    typeFilter === "manualReminders" ||
+    typeFilter === "automatedReminders"
+  ) {
+    const reminderFilter =
+      typeFilter === "reminders" ? "any" : typeFilter === "manualReminders" ? "manual" : "automated";
+    result = result.filter((c) =>
+      matchesReminderFilter(c, reminderFilter, manualReminderConvIds, automatedReminderConvIds),
+    );
+  } else if (typeFilter !== "all") {
+    result = result.filter((c) => c.status === typeFilter);
+  }
+
+  if (assignmentFilter === "mine") {
+    result = result.filter((c) => c.assigned_agent_id === currentUserId);
+  } else if (assignmentFilter === "unassigned") {
+    result = result.filter((c) => !c.assigned_agent_id);
+  }
+
+  if (tagIds.length > 0 || company !== null) {
+    result = result.filter((c) => matchesContactFilters(c, { tagIds, company }));
+  }
+
+  if (search.trim()) {
+    const q = search.toLowerCase();
+    result = result.filter((c) => {
+      const name = c.contact?.name?.toLowerCase() ?? "";
+      const phone = c.contact?.phone?.toLowerCase() ?? "";
+      const lastMsg = c.last_message_text?.toLowerCase() ?? "";
+      return name.includes(q) || phone.includes(q) || lastMsg.includes(q);
+    });
+  }
+
+  return result;
 }

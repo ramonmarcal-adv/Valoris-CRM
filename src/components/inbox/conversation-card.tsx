@@ -78,14 +78,14 @@ export function ConversationCard({
         // Own click target, separate from the card's — stopPropagation
         // keeps it from also opening the conversation or starting a drag.
         <div
-          className="absolute left-2 top-2 z-10"
+          className="absolute left-2 top-2 z-10 flex h-4 w-4 shrink-0 items-center justify-center"
           onClick={(e) => e.stopPropagation()}
           onPointerDown={(e) => e.stopPropagation()}
         >
           <Checkbox
             checked={!!selected}
             onCheckedChange={() => onToggleSelect()}
-            className="bg-card"
+            className="h-4 w-4 shrink-0 bg-card"
           />
         </div>
       )}

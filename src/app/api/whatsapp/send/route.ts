@@ -10,7 +10,7 @@ import {
   validateSendMessageParams,
   SendMessageError,
 } from '@/lib/whatsapp/send-message'
-import { ensureDefaultPipelineDeal } from '@/lib/deals/ensure-default-deal'
+import { resolveDefaultBoardColumnId } from '@/lib/inbox/assign-default-board-column'
 
 // The dashboard's outbound-send endpoint. It owns auth, per-user rate
 // limiting, and the two ways the UI targets a thread — an existing
@@ -236,12 +236,14 @@ async function findOrCreateConversation(
 
   if (existing) return existing.id
 
+  const boardColumnId = await resolveDefaultBoardColumnId(supabase, { accountId, isGroup })
   const { data: created, error } = await supabase
     .from('conversations')
     .insert({
       account_id: accountId,
       user_id: userId,
       contact_id: contactId,
+      board_column_id: boardColumnId,
     })
     .select('id')
     .single()
@@ -249,17 +251,6 @@ async function findOrCreateConversation(
   if (error) {
     console.error('Error creating conversation for contact send:', error.message)
     return null
-  }
-
-  // New conversation → auto-link to the account's default pipeline's
-  // first stage (LeilãoDesk spec), skipping groups (see ensure-default-deal.ts).
-  if (!isGroup) {
-    await ensureDefaultPipelineDeal(supabase, {
-      accountId,
-      userId,
-      contactId,
-      conversationId: created.id,
-    })
   }
 
   return created.id

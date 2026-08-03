@@ -2,37 +2,25 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
-import { toast } from "sonner";
 import {
   CONVERSATION_SELECT,
-  matchesContactFilters,
-  matchesReminderFilter,
   normalizeConversations,
 } from "@/lib/inbox/conversations";
-import { releaseMyLeads, redistributeQueue } from "@/lib/inbox/bulk-actions";
 import { cn } from "@/lib/utils";
-import type { Conversation, ConversationStatus, Profile, Tag } from "@/types";
-import { Search, ChevronDown, X, Pin, Inbox as InboxIcon, Shuffle } from "lucide-react";
+import type { Conversation, Profile } from "@/types";
+import { Pin } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useTranslations } from "next-intl";
 import { useDateFnsLocale } from "@/lib/date-locale";
-import { Input } from "@/components/ui/input";
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ConversationContextMenu } from "./conversation-context-menu";
-import { ScheduledMessagesPanel } from "./scheduled-messages-panel";
 
 interface ConversationListProps {
   activeConversationId: string | null;
   onSelect: (conversation: Conversation) => void;
+  /** Already filtered by the parent's shared search/type/assignment/
+   *  tag/company/reminder criteria (inbox-filter-bar.tsx, 2026-08-03) —
+   *  this component only applies the final pinned-first/recency sort. */
   conversations: Conversation[];
   onConversationsLoaded: (conversations: Conversation[]) => void;
   /**
@@ -49,21 +37,6 @@ interface ConversationListProps {
   onConversationChanged: (conversationId: string, patch: Partial<Conversation>) => void;
 }
 
-
-type InboxFilter =
-  | ConversationStatus
-  | "all"
-  | "unread"
-  | "favorites"
-  | "groups"
-  | "reminders"
-  | "manualReminders"
-  | "automatedReminders";
-
-/** Independent from `InboxFilter` — combines by AND, same as the existing
- *  tag/company filters, so e.g. "Grupos" + "Minhas" can apply together. */
-type AssignmentFilter = "all" | "mine" | "unassigned";
-
 export function ConversationList({
   activeConversationId,
   onSelect,
@@ -74,33 +47,8 @@ export function ConversationList({
   onConversationChanged,
 }: ConversationListProps) {
   const t = useTranslations("Inbox.conversationList");
-  
-  const FILTER_OPTIONS: { label: string; value: InboxFilter }[] = useMemo(() => [
-    { label: t("filterAll"), value: "all" },
-    { label: t("filterUnread"), value: "unread" },
-    { label: t("filterFavorites"), value: "favorites" },
-    { label: t("filterGroups"), value: "groups" },
-    { label: t("filterReminders"), value: "reminders" },
-    { label: t("filterManualReminders"), value: "manualReminders" },
-    { label: t("filterAutomatedReminders"), value: "automatedReminders" },
-    { label: t("filterOpen"), value: "open" },
-    { label: t("filterPending"), value: "pending" },
-    { label: t("filterClosed"), value: "closed" },
-  ], [t]);
 
-  const { user, accountId, canSendMessages, canManageMembers } = useAuth();
-  const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<InboxFilter>("all");
-  const [assignmentFilter, setAssignmentFilter] = useState<AssignmentFilter>("all");
   const [loading, setLoading] = useState(true);
-  const [releasingLeads, setReleasingLeads] = useState(false);
-  const [redistributing, setRedistributing] = useState(false);
-  // Contact-based filters (issue #272). Tags use OR logic (a conversation
-  // matches if its contact carries any selected tag), consistent with
-  // Broadcast audience filtering. Company is an exact match on the field.
-  const [tags, setTags] = useState<Tag[]>([]);
-  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
-  const [selectedCompany, setSelectedCompany] = useState<string | null>(null);
 
   // Keep the latest callback in a ref so the fetch effect below can
   // have a stable, empty-dep identity. Previously the fetch useCallback
@@ -157,118 +105,13 @@ export function ConversationList({
     // up on any events sent while the WS was disconnected or throttled.
   }, [resyncToken, refetchConversations]);
 
-  // Tag definitions for the filter picker — loaded once so labels/colours
-  // stay stable regardless of which conversations happen to be loaded.
-  useEffect(() => {
-    const supabase = createClient();
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase.from("tags").select("*").order("name");
-      if (!cancelled && data) setTags(data as Tag[]);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  // Open reminders per conversation, for the "Lembretes e follow-ups" /
-  // "Só lembretes" / "Só follow-ups automáticos" filters — one-shot fetch,
-  // client-side filtering (same shape as the tags fetch above). Not
-  // realtime-synced: a reminder created by an automation while this tab is
-  // open only shows up here after the next mount/resync, same tradeoff the
-  // tags fetch already has.
-  const [manualReminderConvIds, setManualReminderConvIds] = useState<Set<string>>(new Set());
-  const [automatedReminderConvIds, setAutomatedReminderConvIds] = useState<Set<string>>(new Set());
-  useEffect(() => {
-    const supabase = createClient();
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase
-        .from("contact_reminders")
-        .select("conversation_id, source")
-        .is("completed_at", null)
-        .not("conversation_id", "is", null);
-      if (cancelled || !data) return;
-      const manual = new Set<string>();
-      const automated = new Set<string>();
-      for (const row of data as { conversation_id: string; source: string }[]) {
-        (row.source === "automated" ? automated : manual).add(row.conversation_id);
-      }
-      setManualReminderConvIds(manual);
-      setAutomatedReminderConvIds(automated);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [resyncToken]);
-
-  // Company options are derived from the loaded conversations — there's no
-  // separate companies table, and only companies with a live conversation
-  // are worth offering as an inbox filter.
-  const companies = useMemo(() => {
-    const set = new Set<string>();
-    for (const c of conversations) {
-      const co = c.contact?.company?.trim();
-      if (co) set.add(co);
-    }
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [conversations]);
-
-  const tagsById = useMemo(() => {
-    const m = new Map<string, Tag>();
-    for (const t of tags) m.set(t.id, t);
-    return m;
-  }, [tags]);
-
   const filtered = useMemo(() => {
     // Archived conversations are excluded from the default fetch, but a
     // conversation archived via the context menu while already loaded
     // client-side needs to drop out here too (the parent's `conversations`
-    // array isn't re-fetched on every patch).
-    let result = conversations.filter((c) => !c.is_archived);
-
-    if (filter === "unread") {
-      result = result.filter((c) => c.unread_count > 0);
-    } else if (filter === "favorites") {
-      result = result.filter((c) => c.is_favorite);
-    } else if (filter === "groups") {
-      result = result.filter((c) => c.is_group);
-    } else if (filter === "reminders" || filter === "manualReminders" || filter === "automatedReminders") {
-      const reminderFilter = filter === "reminders" ? "any" : filter === "manualReminders" ? "manual" : "automated";
-      result = result.filter((c) =>
-        matchesReminderFilter(c, reminderFilter, manualReminderConvIds, automatedReminderConvIds),
-      );
-    } else if (filter !== "all") {
-      result = result.filter((c) => c.status === filter);
-    }
-
-    // Assignment scope — independent of the type filter above, combines
-    // by AND (e.g. "Grupos" + "Minhas" can apply together).
-    if (assignmentFilter === "mine") {
-      result = result.filter((c) => c.assigned_agent_id === user?.id);
-    } else if (assignmentFilter === "unassigned") {
-      result = result.filter((c) => !c.assigned_agent_id);
-    }
-
-    // Contact-based filters (tags via OR logic, exact company match).
-    if (selectedTagIds.length > 0 || selectedCompany !== null) {
-      result = result.filter((c) =>
-        matchesContactFilters(c, {
-          tagIds: selectedTagIds,
-          company: selectedCompany,
-        })
-      );
-    }
-
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      result = result.filter((c) => {
-        const name = c.contact?.name?.toLowerCase() ?? "";
-        const phone = c.contact?.phone?.toLowerCase() ?? "";
-        const lastMsg = c.last_message_text?.toLowerCase() ?? "";
-        return name.includes(q) || phone.includes(q) || lastMsg.includes(q);
-      });
-    }
+    // array isn't re-fetched on every patch). Every other filter
+    // criterion is already applied upstream (inbox/page.tsx).
+    const result = conversations.filter((c) => !c.is_archived);
 
     // Pinned conversations float to the top; within each group, most
     // recent activity first. Always re-derived from last_message_at
@@ -285,37 +128,7 @@ export function ConversationList({
       const bTime = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;
       return bTime - aTime;
     });
-  }, [
-    conversations,
-    filter,
-    assignmentFilter,
-    user?.id,
-    search,
-    selectedTagIds,
-    selectedCompany,
-    manualReminderConvIds,
-    automatedReminderConvIds,
-  ]);
-
-  const toggleTag = useCallback((id: string) => {
-    setSelectedTagIds((prev) =>
-      prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]
-    );
-  }, []);
-
-  const clearContactFilters = useCallback(() => {
-    setSelectedTagIds([]);
-    setSelectedCompany(null);
-  }, []);
-
-  const hasContactFilters = selectedTagIds.length > 0 || selectedCompany !== null;
-
-  const handleSearchChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      setSearch(e.target.value);
-    },
-    []
-  );
+  }, [conversations]);
 
   const handleSelect = useCallback(
     (conv: Conversation) => {
@@ -324,275 +137,11 @@ export function ConversationList({
     [onSelect]
   );
 
-  const activeFilter = FILTER_OPTIONS.find((o) => o.value === filter);
-
-  const ASSIGNMENT_OPTIONS: { label: string; value: AssignmentFilter }[] = useMemo(
-    () => [
-      { label: t("assignmentAll"), value: "all" },
-      { label: t("assignmentMine"), value: "mine" },
-      { label: t("assignmentUnassigned"), value: "unassigned" },
-    ],
-    [t],
-  );
-  const activeAssignmentFilter = ASSIGNMENT_OPTIONS.find((o) => o.value === assignmentFilter);
-  const unassignedCount = useMemo(
-    () => conversations.filter((c) => !c.is_archived && !c.assigned_agent_id).length,
-    [conversations],
-  );
-
-  const handleReleaseMyLeads = useCallback(async () => {
-    if (!accountId || !user?.id || releasingLeads) return;
-    setReleasingLeads(true);
-    const supabase = createClient();
-    const { data, error } = await releaseMyLeads(supabase, accountId, user.id);
-    setReleasingLeads(false);
-    if (error) {
-      toast.error(t("toastReleaseFailed"));
-      return;
-    }
-    toast.success(t("toastReleasedCount", { count: data?.length ?? 0 }));
-    await refetchConversations();
-  }, [accountId, user, releasingLeads, t, refetchConversations]);
-
-  const handleRedistributeQueue = useCallback(async () => {
-    if (redistributing) return;
-    setRedistributing(true);
-    const supabase = createClient();
-    const { data, error } = await redistributeQueue(supabase);
-    setRedistributing(false);
-    if (error) {
-      toast.error(t("toastRedistributeFailed"));
-      return;
-    }
-    toast.success(t("toastRedistributedCount", { count: (data as number) ?? 0 }));
-    await refetchConversations();
-  }, [redistributing, t, refetchConversations]);
-
   return (
     // w-full on mobile so the list occupies the whole viewport when it's
     // the single pane showing; fixed 320px on desktop where it shares the
     // row with the thread + contact sidebar.
     <div className="flex h-full w-full flex-col border-r border-border bg-card lg:w-80">
-      {/* Search + Filter */}
-      <div className="space-y-2 border-b border-border p-3">
-        <div className="flex items-center gap-1.5">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={handleSearchChange}
-              placeholder={t("searchPlaceholder")}
-              className="border-border bg-muted pl-9 text-sm text-foreground placeholder-muted-foreground focus:border-primary/50"
-            />
-          </div>
-          <ScheduledMessagesPanel />
-        </div>
-
-        <div className="flex flex-wrap items-center gap-1">
-          <DropdownMenu>
-            <DropdownMenuTrigger className="inline-flex items-center justify-center h-7 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground rounded-md hover:bg-muted">
-                {activeFilter?.label ?? t("filterAll")}
-                <ChevronDown className="h-3 w-3" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="start"
-              className="border-border bg-popover"
-            >
-              {FILTER_OPTIONS.map((opt) => (
-                <DropdownMenuItem
-                  key={opt.value}
-                  onClick={() => setFilter(opt.value)}
-                  className={cn(
-                    "text-sm",
-                    filter === opt.value
-                      ? "text-primary"
-                      : "text-popover-foreground"
-                  )}
-                >
-                  {opt.label}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {/* Assignment scope: Todas/Minhas/Fila + bulk actions
-              (Liberar meus leads / Redistribuir fila). */}
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              className={cn(
-                "inline-flex items-center justify-center h-7 gap-1 px-2 text-xs rounded-md hover:bg-muted",
-                assignmentFilter !== "all" ? "text-primary" : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <InboxIcon className="h-3 w-3" />
-              {activeAssignmentFilter?.label ?? t("assignmentAll")}
-              <ChevronDown className="h-3 w-3" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="border-border bg-popover">
-              {ASSIGNMENT_OPTIONS.map((opt) => (
-                <DropdownMenuItem
-                  key={opt.value}
-                  onClick={() => setAssignmentFilter(opt.value)}
-                  className={cn(
-                    "text-sm",
-                    assignmentFilter === opt.value ? "text-primary" : "text-popover-foreground",
-                  )}
-                >
-                  <span className="flex-1">{opt.label}</span>
-                  {opt.value === "unassigned" && (
-                    <span className="ml-2 rounded-full bg-muted px-1.5 text-[10px] text-muted-foreground">
-                      {unassignedCount}
-                    </span>
-                  )}
-                </DropdownMenuItem>
-              ))}
-              <DropdownMenuSeparator className="bg-border" />
-              <DropdownMenuItem
-                disabled={!canSendMessages || releasingLeads}
-                onClick={handleReleaseMyLeads}
-                className="text-sm text-popover-foreground"
-              >
-                {t("releaseMyLeads")}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                disabled={!canManageMembers || redistributing}
-                onClick={handleRedistributeQueue}
-                title={!canManageMembers ? t("redistributeQueueAdminOnly") : undefined}
-                className="text-sm text-popover-foreground"
-              >
-                <Shuffle className="h-3 w-3" />
-                {t("redistributeQueue")}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {tags.length > 0 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                className={cn(
-                  "inline-flex items-center justify-center h-7 gap-1 px-2 text-xs rounded-md hover:bg-muted",
-                  selectedTagIds.length > 0
-                    ? "text-primary"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {t("tags")}
-                {selectedTagIds.length > 0 && (
-                  <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
-                    {selectedTagIds.length}
-                  </span>
-                )}
-                <ChevronDown className="h-3 w-3" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="start"
-                className="max-h-64 w-56 border-border bg-popover"
-              >
-                {tags.map((t) => (
-                  <DropdownMenuCheckboxItem
-                    key={t.id}
-                    checked={selectedTagIds.includes(t.id)}
-                    onCheckedChange={() => toggleTag(t.id)}
-                    className="text-sm text-popover-foreground"
-                  >
-                    <span className="flex items-center gap-2">
-                      <span
-                        className="h-2 w-2 shrink-0 rounded-full"
-                        style={{ backgroundColor: t.color }}
-                      />
-                      <span className="truncate">{t.name}</span>
-                    </span>
-                  </DropdownMenuCheckboxItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-
-          {companies.length > 0 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                className={cn(
-                  "inline-flex max-w-40 items-center justify-center h-7 gap-1 px-2 text-xs rounded-md hover:bg-muted",
-                  selectedCompany
-                    ? "text-primary"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <span className="truncate">{selectedCompany ?? t("company")}</span>
-                <ChevronDown className="h-3 w-3 shrink-0" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="start"
-                className="max-h-64 w-56 border-border bg-popover"
-              >
-                <DropdownMenuItem
-                  onClick={() => setSelectedCompany(null)}
-                  className={cn(
-                    "text-sm",
-                    selectedCompany === null
-                      ? "text-primary"
-                      : "text-popover-foreground"
-                  )}
-                >
-                  {t("allCompanies")}
-                </DropdownMenuItem>
-                {companies.map((co) => (
-                  <DropdownMenuItem
-                    key={co}
-                    onClick={() => setSelectedCompany(co)}
-                    className={cn(
-                      "text-sm",
-                      selectedCompany === co
-                        ? "text-primary"
-                        : "text-popover-foreground"
-                    )}
-                  >
-                    <span className="truncate">{co}</span>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </div>
-
-        {hasContactFilters && (
-          <div className="flex flex-wrap items-center gap-1">
-            {selectedTagIds.map((id) => {
-              const tag = tagsById.get(id);
-              return (
-                <button
-                  key={id}
-                  onClick={() => toggleTag(id)}
-                  className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] text-foreground hover:bg-muted/70"
-                >
-                  <span
-                    className="h-1.5 w-1.5 shrink-0 rounded-full"
-                    style={{ backgroundColor: tag?.color ?? "var(--muted-foreground)" }}
-                  />
-                  <span className="max-w-24 truncate">{tag?.name ?? t("tags")}</span>
-                  <X className="h-3 w-3" />
-                </button>
-              );
-            })}
-            {selectedCompany && (
-              <button
-                onClick={() => setSelectedCompany(null)}
-                className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] text-foreground hover:bg-muted/70"
-              >
-                <span className="max-w-24 truncate">{selectedCompany}</span>
-                <X className="h-3 w-3" />
-              </button>
-            )}
-            <button
-              onClick={clearContactFilters}
-              className="px-1 text-[11px] text-muted-foreground hover:text-foreground"
-            >
-              {t("clearAll")}
-            </button>
-          </div>
-        )}
-      </div>
-
       {/* Conversation Items.
           `min-h-0` is load-bearing: a flex child defaults to
           min-height:auto, so without it this ScrollArea grows to fit

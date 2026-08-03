@@ -58,7 +58,7 @@ export async function POST(request: Request) {
       for (const group of groups) {
         const groupOutcome = await findOrCreateGroupContact(config, accountId, accountUserId, group.id)
         if (!groupOutcome) continue
-        const convResult = await findOrCreateConversation(accountId, accountUserId, groupOutcome.contact.id)
+        const convResult = await findOrCreateConversation(accountId, accountUserId, groupOutcome.contact.id, true)
         if (!convResult) continue
         if (convResult.created || groupOutcome.wasCreated) {
           await markConversationAsGroup(config, convResult.conversation.id, group.id)

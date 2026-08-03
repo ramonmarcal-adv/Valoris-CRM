@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { decrypt } from '@/lib/whatsapp/encryption'
 import { findExistingContact, isUniqueViolation } from '@/lib/contacts/dedupe'
-import { ensureDefaultPipelineDeal } from '@/lib/deals/ensure-default-deal'
+import { resolveDefaultBoardColumnId } from '@/lib/inbox/assign-default-board-column'
 import {
   fetchEvolutionGroupInfo,
   fetchEvolutionGroupParticipants,
@@ -435,6 +435,7 @@ export async function findOrCreateConversation(
   accountId: string,
   configOwnerUserId: string,
   contactId: string,
+  isGroup: boolean,
 ): Promise<{ conversation: ConversationRow; created: boolean } | null> {
   // Oldest-first / no-.single() — mirrors the Meta webhook's
   // findOrCreateConversation (issue #363): `.single()` here would
@@ -454,9 +455,15 @@ export async function findOrCreateConversation(
     return { conversation: existingRows[0], created: false }
   }
 
+  const boardColumnId = await resolveDefaultBoardColumnId(supabaseAdmin(), { accountId, isGroup })
   const { data: newConv, error: createError } = await supabaseAdmin()
     .from('conversations')
-    .insert({ account_id: accountId, user_id: configOwnerUserId, contact_id: contactId })
+    .insert({
+      account_id: accountId,
+      user_id: configOwnerUserId,
+      contact_id: contactId,
+      board_column_id: boardColumnId,
+    })
     .select()
     .single()
   if (createError) {
@@ -615,21 +622,8 @@ export async function upsertEvolutionMessage(
     if (!contactOutcome) return null
   }
 
-  const convResult = await findOrCreateConversation(accountId, configOwnerUserId, contactOutcome.contact.id)
+  const convResult = await findOrCreateConversation(accountId, configOwnerUserId, contactOutcome.contact.id, isGroup)
   if (!convResult) return null
-
-  // New 1:1 conversation → auto-link it to the account's default
-  // pipeline's first stage (LeilãoDesk spec: every new lead starts
-  // there). Groups are deliberately excluded — see ensure-default-deal.ts.
-  if (convResult.created && !isGroup) {
-    await ensureDefaultPipelineDeal(supabaseAdmin(), {
-      accountId,
-      userId: configOwnerUserId,
-      contactId: contactOutcome.contact.id,
-      conversationId: convResult.conversation.id,
-      contactLabel: contactOutcome.contact.name || contactOutcome.contact.phone,
-    })
-  }
 
   // Resolve @mentions (group-only — see ParsedEvolutionContent's doc
   // comment) against the same participant list/cache used for sender

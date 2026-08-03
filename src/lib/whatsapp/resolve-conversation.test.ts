@@ -65,6 +65,11 @@ function makeDb(script: Script): SupabaseClient {
           error: null,
         });
       }
+      // resolveDefaultBoardColumnId chains `.limit(1).maybeSingle()` —
+      // keep the builder alive here so `.maybeSingle()` below resolves it.
+      if (table === 'conversation_board_columns' && mode === 'select') {
+        return builder;
+      }
       return Promise.resolve({ data: [], error: null });
     },
     like: () => {
@@ -77,6 +82,8 @@ function makeDb(script: Script): SupabaseClient {
     maybeSingle: () => {
       if (table === 'whatsapp_config')
         return Promise.resolve({ data: script.config ?? null, error: null });
+      if (table === 'conversation_board_columns')
+        return Promise.resolve({ data: { id: 'default-leads-col' }, error: null });
       return Promise.resolve({ data: null, error: null });
     },
     single: () => {

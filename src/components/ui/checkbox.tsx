@@ -16,7 +16,11 @@ function Checkbox({
     <CheckboxPrimitive.Root
       data-slot="checkbox"
       className={cn(
-        "peer size-4 shrink-0 cursor-pointer rounded-[4px] border border-input bg-card shadow-sm transition-colors",
+        // CheckboxRoot renders a <span> (inline by default), which the
+        // CSS box model ignores width/height on — inline-flex forces
+        // blockification so h-4/w-4 actually take effect instead of the
+        // box collapsing to a hairline border around empty content.
+        "peer inline-flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-[4px] border border-input bg-card shadow-sm transition-colors",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         "disabled:cursor-not-allowed disabled:opacity-50",
         "data-[checked]:border-primary data-[checked]:bg-primary data-[checked]:text-primary-foreground",

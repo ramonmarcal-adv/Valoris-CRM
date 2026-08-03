@@ -225,6 +225,51 @@ export interface Conversation {
    *  which column that is. Fractional/gap-based; null for a row that's
    *  never been manually reordered (falls back to last_message_at). */
   kanban_position?: number | null;
+  /** Inbox Kanban bucket (migration 057) — decoupled from `deals`, see
+   *  `BoardColumn`. Nullable by design (never enforced NOT NULL, to
+   *  avoid a migration/deploy-order race); the bucketing memo in
+   *  inbox/page.tsx falls back to the account's default-for-leads
+   *  column when this is null. */
+  board_column_id?: string | null;
+  /** Denormalized, trigger-maintained (migration 057) — timestamp of
+   *  the most recent message in each direction, used by the "Última
+   *  mensagem enviada/recebida" board-column sort modes. */
+  last_inbound_message_at?: string | null;
+  last_outbound_message_at?: string | null;
+}
+
+// ============================================================
+// Inbox Kanban board columns (migration 057)
+//
+// Freely editable/reorderable buckets a conversation can be placed
+// in, independent of `pipelines`/`deals` — see the "Pivot" section of
+// the roadmap plan for why. Exactly one column per account is always
+// flagged is_default_for_leads and one is_default_for_groups (partial
+// unique indexes in the migration); new conversations are filed into
+// whichever applies at creation time (assign-default-board-column.ts).
+// ============================================================
+
+export type BoardColumnSortMode =
+  | "last_message_at"
+  | "last_outbound_message_at"
+  | "last_inbound_message_at"
+  | "next_reminder_any"
+  | "next_reminder_manual"
+  | "next_reminder_automated"
+  | "manual";
+
+export interface BoardColumn {
+  id: string;
+  account_id: string;
+  name: string;
+  color: string;
+  position: number;
+  sort_by: BoardColumnSortMode;
+  sort_direction: "asc" | "desc";
+  is_default_for_leads: boolean;
+  is_default_for_groups: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 // ============================================================
