@@ -6,27 +6,29 @@ import { formatDistanceToNow } from "date-fns";
 import { useTranslations } from "next-intl";
 import { useDateFnsLocale } from "@/lib/date-locale";
 import { Pin } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ConversationContextMenu } from "./conversation-context-menu";
 
 interface ConversationCardProps {
   conversation: Conversation;
   onSelect: (conversation: Conversation) => void;
   isOverlay?: boolean;
-  /** Dims the card and shows a hint when it can't be dragged in the
-   *  current grouping mode (e.g. no linked deal while grouped by pipeline). */
-  disabledHint?: string;
   /** Omitted for the DragOverlay ghost copy, which never needs a menu. */
   profiles?: Profile[];
   onConversationChanged?: (conversationId: string, patch: Partial<Conversation>) => void;
+  /** Bulk-select checkbox — omit both to hide it entirely. */
+  selected?: boolean;
+  onToggleSelect?: () => void;
 }
 
 export function ConversationCard({
   conversation,
   onSelect,
   isOverlay,
-  disabledHint,
   profiles,
   onConversationChanged,
+  selected,
+  onToggleSelect,
 }: ConversationCardProps) {
   const t = useTranslations("Inbox.conversationList");
   const dateLocale = useDateFnsLocale();
@@ -52,16 +54,30 @@ export function ConversationCard({
         e.stopPropagation();
         onSelect(conversation);
       }}
-      title={disabledHint}
       className={cn(
         "group relative w-full cursor-pointer rounded-xl border border-border/50 bg-muted/70 px-3 py-3 text-left shadow-sm transition-all",
         isOverlay
           ? "shadow-xl"
           : "hover:-translate-y-0.5 hover:border-border hover:bg-muted hover:shadow-lg",
-        disabledHint && "opacity-60",
+        selected && "border-primary/60 bg-primary/5",
       )}
     >
-      <div className="flex items-start gap-2">
+      {onToggleSelect && (
+        // Own click target, separate from the card's — stopPropagation
+        // keeps it from also opening the conversation or starting a drag.
+        <div
+          className="absolute left-2 top-2 z-10"
+          onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <Checkbox
+            checked={!!selected}
+            onCheckedChange={() => onToggleSelect()}
+            className="bg-card"
+          />
+        </div>
+      )}
+      <div className={cn("flex items-start gap-2", onToggleSelect && "pl-5")}>
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-foreground">
           {contact?.avatar_url ? (
             // eslint-disable-next-line @next/next/no-img-element

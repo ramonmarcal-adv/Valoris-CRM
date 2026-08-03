@@ -9,11 +9,17 @@ import {
   useSensor,
   useSensors,
   useDroppable,
-  useDraggable,
   closestCorners,
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  arrayMove,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import type { Conversation, Profile } from "@/types";
 import { ConversationCard } from "./conversation-card";
 
@@ -25,20 +31,39 @@ export interface ConversationBoardColumn {
 
 interface ConversationBoardProps {
   columns: ConversationBoardColumn[];
-  /** Pre-bucketed conversations, one entry per column id. The board is
-   *  agnostic of *why* a conversation lands in a column — the caller
-   *  decides (status value, or resolved pipeline stage). */
+  /** Pre-bucketed AND pre-sorted (by kanban_position) conversations, one
+   *  entry per column id. The board is agnostic of *why* a conversation
+   *  lands in a column — the caller decides. */
   conversationsByColumn: Map<string, Conversation[]>;
   onSelect: (conversation: Conversation) => void;
   onMove: (conversationId: string, fromColumnId: string, toColumnId: string) => void;
-  /** Returns a hint string when a card can't be dragged in the current
-   *  grouping mode (e.g. no linked deal while grouped by pipeline stage);
-   *  undefined means the card is draggable. */
-  getDisabledHint?: (conversation: Conversation) => string | undefined;
+  /** Same-column drag reorder — `newPosition` is the fractional
+   *  kanban_position already computed from the drop's new neighbors. */
+  onReorder: (conversationId: string, newPosition: number) => void;
   emptyColumnHint: string;
   /** Account members for each card's right-click "Atribuir agente" submenu. */
   profiles: Profile[];
   onConversationChanged: (conversationId: string, patch: Partial<Conversation>) => void;
+  /** Bulk-select mode — omit both to hide checkboxes entirely. */
+  selectedIds?: Set<string>;
+  onToggleSelect?: (conversationId: string) => void;
+}
+
+/** Fractional position for an item inserted at `index` in `orderedIds`
+ *  (the column's new order, moved item already included) — the
+ *  midpoint of its new neighbors, or ±1000 past whichever end it lands
+ *  at. Trello-style gap positioning: only the ONE moved row needs a
+ *  write, never a renumber of the whole column. */
+function computeReorderPosition(
+  orderedList: Conversation[],
+  index: number,
+): number {
+  const before = orderedList[index - 1]?.kanban_position ?? null;
+  const after = orderedList[index + 1]?.kanban_position ?? null;
+  if (before != null && after != null) return (before + after) / 2;
+  if (before != null) return before + 1000;
+  if (after != null) return after - 1000;
+  return 1000;
 }
 
 export function ConversationBoard({
@@ -46,10 +71,12 @@ export function ConversationBoard({
   conversationsByColumn,
   onSelect,
   onMove,
-  getDisabledHint,
+  onReorder,
   emptyColumnHint,
   profiles,
   onConversationChanged,
+  selectedIds,
+  onToggleSelect,
 }: ConversationBoardProps) {
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
 
@@ -90,13 +117,37 @@ export function ConversationBoard({
     const { active, over } = event;
     if (!over) return;
     const conversationId = String(active.id);
-    const targetColumnId = String(over.id);
+    const overId = String(over.id);
+    if (conversationId === overId) return;
 
     const fromColumnId = columnIdByConversationId.get(conversationId);
-    if (!fromColumnId || fromColumnId === targetColumnId) return;
-    if (!columns.some((c) => c.id === targetColumnId)) return;
+    if (!fromColumnId) return;
 
-    onMove(conversationId, fromColumnId, targetColumnId);
+    // `over.id` is either a column itself (dropped on empty space) or
+    // another card (dropped on/near it) — resolve which column either
+    // way.
+    const overIsColumn = columns.some((c) => c.id === overId);
+    const toColumnId = overIsColumn ? overId : columnIdByConversationId.get(overId);
+    if (!toColumnId) return;
+
+    if (toColumnId !== fromColumnId) {
+      onMove(conversationId, fromColumnId, toColumnId);
+      return;
+    }
+
+    // Same-column reorder — only meaningful when dropped on another
+    // card (dropping on the column's own empty background is a no-op,
+    // nothing to reorder against).
+    if (overIsColumn) return;
+    const current = conversationsByColumn.get(fromColumnId) ?? [];
+    const oldIndex = current.findIndex((c) => c.id === conversationId);
+    const overIndex = current.findIndex((c) => c.id === overId);
+    if (oldIndex < 0 || overIndex < 0 || oldIndex === overIndex) return;
+
+    const reordered = arrayMove(current, oldIndex, overIndex);
+    const newIndex = reordered.findIndex((c) => c.id === conversationId);
+    const newPosition = computeReorderPosition(reordered, newIndex);
+    onReorder(conversationId, newPosition);
   }
 
   function handleDragCancel() {
@@ -118,10 +169,11 @@ export function ConversationBoard({
             column={column}
             conversations={conversationsByColumn.get(column.id) ?? []}
             onSelect={onSelect}
-            getDisabledHint={getDisabledHint}
             emptyColumnHint={emptyColumnHint}
             profiles={profiles}
             onConversationChanged={onConversationChanged}
+            selectedIds={selectedIds}
+            onToggleSelect={onToggleSelect}
           />
         ))}
       </div>
@@ -181,18 +233,20 @@ function BoardColumn({
   column,
   conversations,
   onSelect,
-  getDisabledHint,
   emptyColumnHint,
   profiles,
   onConversationChanged,
+  selectedIds,
+  onToggleSelect,
 }: {
   column: ConversationBoardColumn;
   conversations: Conversation[];
   onSelect: (conversation: Conversation) => void;
-  getDisabledHint?: (conversation: Conversation) => string | undefined;
   emptyColumnHint: string;
   profiles: Profile[];
   onConversationChanged: (conversationId: string, patch: Partial<Conversation>) => void;
+  selectedIds?: Set<string>;
+  onToggleSelect?: (conversationId: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
 
@@ -224,16 +278,22 @@ function BoardColumn({
             {emptyColumnHint}
           </div>
         ) : (
-          conversations.map((conv) => (
-            <DraggableConversationCard
-              key={conv.id}
-              conversation={conv}
-              onSelect={onSelect}
-              disabledHint={getDisabledHint?.(conv)}
-              profiles={profiles}
-              onConversationChanged={onConversationChanged}
-            />
-          ))
+          <SortableContext
+            items={conversations.map((c) => c.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            {conversations.map((conv) => (
+              <DraggableConversationCard
+                key={conv.id}
+                conversation={conv}
+                onSelect={onSelect}
+                profiles={profiles}
+                onConversationChanged={onConversationChanged}
+                selected={selectedIds?.has(conv.id)}
+                onToggleSelect={onToggleSelect ? () => onToggleSelect(conv.id) : undefined}
+              />
+            ))}
+          </SortableContext>
         )}
       </div>
     </div>
@@ -243,34 +303,38 @@ function BoardColumn({
 function DraggableConversationCard({
   conversation,
   onSelect,
-  disabledHint,
   profiles,
   onConversationChanged,
+  selected,
+  onToggleSelect,
 }: {
   conversation: Conversation;
   onSelect: (conversation: Conversation) => void;
-  disabledHint?: string;
   profiles: Profile[];
   onConversationChanged: (conversationId: string, patch: Partial<Conversation>) => void;
+  selected?: boolean;
+  onToggleSelect?: () => void;
 }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: conversation.id,
-    disabled: !!disabledHint,
   });
 
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.3 : 1,
+    touchAction: "none" as const,
+  };
+
   return (
-    <div
-      ref={setNodeRef}
-      {...listeners}
-      {...attributes}
-      style={{ opacity: isDragging ? 0.3 : 1, touchAction: "none" }}
-    >
+    <div ref={setNodeRef} style={style} {...listeners} {...attributes}>
       <ConversationCard
         conversation={conversation}
         onSelect={onSelect}
-        disabledHint={disabledHint}
         profiles={profiles}
         onConversationChanged={onConversationChanged}
+        selected={selected}
+        onToggleSelect={onToggleSelect}
       />
     </div>
   );

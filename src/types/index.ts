@@ -220,6 +220,11 @@ export interface Conversation {
   ai_autoreply_disabled?: boolean;
   ai_reply_count?: number;
   ai_handoff_summary?: string | null;
+  /** Manual drag-to-reorder position within whatever Kanban column this
+   *  conversation is currently in (migration 056) — independent of
+   *  which column that is. Fractional/gap-based; null for a row that's
+   *  never been manually reordered (falls back to last_message_at). */
+  kanban_position?: number | null;
 }
 
 // ============================================================

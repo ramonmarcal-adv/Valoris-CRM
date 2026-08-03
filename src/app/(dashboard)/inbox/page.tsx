@@ -18,11 +18,13 @@ import type {
   Profile,
 } from "@/types";
 import { useRealtime } from "@/hooks/use-realtime";
+import { useAuth } from "@/hooks/use-auth";
 import { ConversationList } from "@/components/inbox/conversation-list";
 import { ConversationBoard, type ConversationBoardColumn } from "@/components/inbox/conversation-board";
 import { MessageThread } from "@/components/inbox/message-thread";
 import { ContactSidebar } from "@/components/inbox/contact-sidebar";
 import { PipelineSettings } from "@/components/pipelines/pipeline-settings";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { moveDealToStage } from "@/lib/deals/move-deal";
 import { toast } from "sonner";
 import { WifiOff, List, Kanban as KanbanIcon, ChevronDown, GitBranch, Settings } from "lucide-react";
@@ -70,6 +72,7 @@ export default function InboxPage() {
 function InboxPageInner() {
   const t = useTranslations("Inbox.page");
   const tBoard = useTranslations("Inbox.board");
+  const { accountId } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   /**
@@ -690,6 +693,45 @@ function InboxPageInner() {
     [activeConversation]
   );
 
+  // Same-column drag reorder (Kanban) — `newPosition` is already the
+  // fractional kanban_position computed by ConversationBoard from the
+  // drop's new neighbors (migration 056).
+  const handleConversationReordered = useCallback(
+    (conversationId: string, newPosition: number) => {
+      handleConversationChanged(conversationId, { kanban_position: newPosition });
+      const supabase = createClient();
+      supabase
+        .from("conversations")
+        .update({ kanban_position: newPosition })
+        .eq("id", conversationId)
+        .then(({ error }) => {
+          if (error) {
+            console.error("Failed to persist kanban_position:", error);
+            toast.error(tBoard("toastFailedReorder"));
+          }
+        });
+    },
+    [handleConversationChanged, tBoard],
+  );
+
+  // Kanban bulk-select — cleared whenever the visible board changes
+  // underneath it (pipeline switch, leaving Kanban) so it never holds
+  // ids that aren't on screen anymore.
+  const [selectedConversationIds, setSelectedConversationIds] = useState<Set<string>>(
+    new Set(),
+  );
+  const handleToggleSelectConversation = useCallback((conversationId: string) => {
+    setSelectedConversationIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(conversationId)) next.delete(conversationId);
+      else next.add(conversationId);
+      return next;
+    });
+  }, []);
+  const clearConversationSelection = useCallback(() => {
+    setSelectedConversationIds(new Set());
+  }, []);
+
   // ─────────────────────────────────────────────────────────────
   // Kanban view: List/Kanban toggle + (in Kanban) group-by-status vs
   // group-by-pipeline-stage. Restored from localStorage after mount for
@@ -813,70 +855,141 @@ function InboxPageInner() {
     const map = new Map<string, Conversation[]>();
     for (const col of pipelineColumns) map.set(col.id, []);
     for (const conv of conversations) {
-      // Groups never get an auto-created deal (see ensure-default-deal.ts)
-      // and aren't sales leads in the same sense a 1:1 contact is — they
-      // get their own column instead of being indistinguishable from
-      // stray no-deal conversations in "Sem negócio neste pipeline".
-      // Checked before the deal lookup so a manually-created deal for a
-      // group (an edge case, not a supported flow) doesn't move it out.
-      if (conv.is_group) {
-        map.get(GROUPS_COLUMN_ID)?.push(conv);
-        continue;
-      }
       const deal = bestDealByContactId.get(conv.contact_id);
-      const columnId = deal && map.has(deal.stage_id) ? deal.stage_id : NO_PIPELINE_COLUMN_ID;
+      let columnId: string;
+      if (deal && map.has(deal.stage_id)) {
+        // Has a real deal in this pipeline — including a group that was
+        // manually dragged into a stage, which puts it here instead of
+        // "Grupos" from then on.
+        columnId = deal.stage_id;
+      } else if (conv.is_group) {
+        columnId = GROUPS_COLUMN_ID;
+      } else {
+        columnId = NO_PIPELINE_COLUMN_ID;
+      }
       map.get(columnId)?.push(conv);
+    }
+    // Manual drag order within a column (kanban_position, migration 056);
+    // nulls (never reordered) fall back to whatever order the fetch
+    // already provided (last_message_at desc).
+    for (const list of map.values()) {
+      list.sort((a, b) => {
+        if (a.kanban_position != null && b.kanban_position != null) {
+          return a.kanban_position - b.kanban_position;
+        }
+        if (a.kanban_position != null) return -1;
+        if (b.kanban_position != null) return 1;
+        return 0;
+      });
     }
     return map;
   }, [pipelineColumns, conversations, bestDealByContactId]);
 
-  const getPipelineDragHint = useCallback(
-    (conv: Conversation) => {
-      if (conv.is_group) return tBoard("groupsNotDraggableHint");
-      return bestDealByContactId.has(conv.contact_id) ? undefined : tBoard("noDealToMoveHint");
+  // Every card is draggable everywhere now — no disabled state. Validity
+  // of a given drop is decided in handleConversationDealMoved instead
+  // (e.g. a non-group card dropped on "Grupos" is rejected there, with
+  // a toast, rather than being unpickable in the first place).
+
+  // Deletes whatever deal links `conv` to the currently-selected
+  // pipeline — used both when dropping a card onto "Sem negócio" (an
+  // explicit "stop tracking this in this pipeline") and onto "Grupos"
+  // for a group that already had a deal (drops it back to being a
+  // plain, deal-less group). A deal's pipeline_id is fixed at creation
+  // (migration 001), so "move it out of this pipeline" and "delete this
+  // pipeline's deal for it" are the same operation — there's no
+  // "deal with no stage" state to move it to instead.
+  const unlinkDealFromPipeline = useCallback(
+    async (conv: Conversation) => {
+      const deal = bestDealByContactId.get(conv.contact_id);
+      if (!deal) return;
+      setPipelineDeals((prev) => prev.filter((d) => d.id !== deal.id));
+      const supabase = createClient();
+      const { error } = await supabase.from("deals").delete().eq("id", deal.id);
+      if (error) {
+        toast.error(tBoard("toastFailedUnlinkDeal"));
+        setPipelineDeals((prev) => [...prev, deal]);
+        return;
+      }
+      toast.success(tBoard("toastDealUnlinked"));
     },
     [bestDealByContactId, tBoard],
   );
 
   // The card represents a conversation, but the move mutates the linked
-  // deal's `stage_id` — same write path (and same shared helper) the
-  // Pipelines board itself uses, so moving a deal via either board stays
-  // consistent.
+  // deal's `stage_id` (or creates/deletes it) — same write path (and
+  // same shared helper) the Pipelines board itself uses for stage
+  // moves, so moving a deal via either board stays consistent.
   const handleConversationDealMoved = useCallback(
-    async (conversationId: string, newStageId: string) => {
-      // "Sem Pipeline"/no-deal-in-this-pipeline isn't a real stage — a
-      // card sits there because the contact has no deal in the
-      // currently-selected pipeline, not because a deal was moved to a
-      // "no stage" state. Dropping a card here used to be a silent
-      // no-op (the card just snapped back with no explanation); tell
-      // the agent why instead.
-      if (newStageId === NO_PIPELINE_COLUMN_ID) {
-        toast.error(tBoard("toastCannotMoveToNoPipeline"));
-        return;
-      }
-      if (newStageId === GROUPS_COLUMN_ID) {
-        toast.error(tBoard("toastCannotMoveToGroups"));
-        return;
-      }
+    async (conversationId: string, newColumnId: string) => {
       const conv = conversations.find((c) => c.id === conversationId);
-      const deal = conv ? bestDealByContactId.get(conv.contact_id) : undefined;
-      if (!deal) return;
+      if (!conv) return;
 
-      const previousStageId = deal.stage_id;
+      if (newColumnId === GROUPS_COLUMN_ID) {
+        if (!conv.is_group) {
+          toast.error(tBoard("toastCannotMoveNonGroupToGroups"));
+          return;
+        }
+        await unlinkDealFromPipeline(conv);
+        return;
+      }
+
+      if (newColumnId === NO_PIPELINE_COLUMN_ID) {
+        await unlinkDealFromPipeline(conv);
+        return;
+      }
+
+      // newColumnId is a real pipeline stage from here on.
+      const existingDeal = bestDealByContactId.get(conv.contact_id);
+
+      if (!existingDeal) {
+        // No deal yet in this pipeline — a lead that was never linked,
+        // or a group being promoted into the pipeline for the first
+        // time. Create one on the fly at the exact stage it was
+        // dropped on, rather than only ever at the pipeline's first
+        // stage (that's what ensureDefaultPipelineDeal is for, on
+        // brand-new conversations — this is the same idea, manually
+        // triggered, at an arbitrary stage).
+        if (!accountId) return;
+        const supabase = createClient();
+        const title = conv.contact?.name || conv.contact?.phone || tBoard("newDealFallbackTitle");
+        const { data: created, error } = await supabase
+          .from("deals")
+          .insert({
+            account_id: accountId,
+            user_id: conv.user_id,
+            pipeline_id: selectedPipelineId,
+            stage_id: newColumnId,
+            contact_id: conv.contact_id,
+            conversation_id: conv.id,
+            title,
+          })
+          .select("id, contact_id, stage_id")
+          .single();
+        if (error || !created) {
+          toast.error(tBoard("toastFailedMoveDeal"));
+          return;
+        }
+        setPipelineDeals((prev) => [...prev, created as PipelineDealLite]);
+        return;
+      }
+
+      if (existingDeal.stage_id === newColumnId) return;
+
+      const previousStageId = existingDeal.stage_id;
       setPipelineDeals((prev) =>
-        prev.map((d) => (d.id === deal.id ? { ...d, stage_id: newStageId } : d)),
+        prev.map((d) => (d.id === existingDeal.id ? { ...d, stage_id: newColumnId } : d)),
       );
 
       const supabase = createClient();
-      const { error } = await moveDealToStage(supabase, deal.id, newStageId);
+      const { error } = await moveDealToStage(supabase, existingDeal.id, newColumnId);
       if (error) {
         toast.error(tBoard("toastFailedMoveDeal"));
         setPipelineDeals((prev) =>
-          prev.map((d) => (d.id === deal.id ? { ...d, stage_id: previousStageId } : d)),
+          prev.map((d) => (d.id === existingDeal.id ? { ...d, stage_id: previousStageId } : d)),
         );
       }
     },
-    [conversations, bestDealByContactId, tBoard],
+    [conversations, bestDealByContactId, tBoard, accountId, selectedPipelineId, unlinkDealFromPipeline],
   );
 
   const handleBoardMove = useCallback(
@@ -886,15 +999,38 @@ function InboxPageInner() {
     [handleConversationDealMoved],
   );
 
-  // Kanban is a triage view, not a second place to read the thread — a
-  // card click hands off to the list/thread layout with that conversation
-  // selected, rather than growing a fourth pane.
+  // Bulk action from the selection toolbar — reuses the exact same
+  // per-card move logic a single drag uses (same validation: a
+  // non-group card silently skipped for "Grupos", same deal
+  // create/move/delete otherwise), just fanned out over every selected
+  // id at once.
+  const handleBulkMoveSelected = useCallback(
+    (targetColumnId: string) => {
+      for (const conversationId of selectedConversationIds) {
+        handleConversationDealMoved(conversationId, targetColumnId);
+      }
+      clearConversationSelection();
+    },
+    [selectedConversationIds, handleConversationDealMoved, clearConversationSelection],
+  );
+
+  // Selection shouldn't survive a change to what's actually on screen —
+  // switching pipelines or leaving Kanban both swap out the board's
+  // contents entirely.
+  useEffect(() => {
+    clearConversationSelection();
+  }, [selectedPipelineId, viewMode, clearConversationSelection]);
+
+  // Card click opens the conversation in a side drawer over the Kanban
+  // instead of switching away to the List/thread layout — the agent
+  // replies without losing their place on the board (LeilãoDesk spec).
+  const [kanbanThreadOpen, setKanbanThreadOpen] = useState(false);
   const handleBoardCardSelect = useCallback(
     (conv: Conversation) => {
-      handleViewModeChange("list");
       handleSelectConversation(conv);
+      setKanbanThreadOpen(true);
     },
-    [handleViewModeChange, handleSelectConversation],
+    [handleSelectConversation],
   );
 
   // On mobile (<lg) we show a SINGLE pane — either the list or the
@@ -1009,7 +1145,38 @@ function InboxPageInner() {
       })()}
 
       {viewMode === "kanban" ? (
-        <div className="flex-1 overflow-hidden p-3">
+        <div className="flex flex-1 flex-col overflow-hidden p-3">
+          {selectedConversationIds.size > 0 && (
+            <div className="mb-3 flex shrink-0 flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2">
+              <span className="text-xs font-medium text-foreground">
+                {tBoard("selectedCount", { count: selectedConversationIds.size })}
+              </span>
+              <DropdownMenu>
+                <DropdownMenuTrigger className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-muted data-[popup-open]:bg-muted">
+                  {tBoard("moveSelectedTo")}
+                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="border-border bg-popover">
+                  {pipelineColumns.map((col) => (
+                    <DropdownMenuItem
+                      key={col.id}
+                      onClick={() => handleBulkMoveSelected(col.id)}
+                      className="text-popover-foreground"
+                    >
+                      {col.title}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <button
+                type="button"
+                onClick={clearConversationSelection}
+                className="ml-auto text-xs text-muted-foreground hover:text-foreground"
+              >
+                {tBoard("clearSelection")}
+              </button>
+            </div>
+          )}
           {pipelines.length === 0 ? (
             <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
               {tBoard("noPipelinesYet")}
@@ -1020,10 +1187,12 @@ function InboxPageInner() {
               conversationsByColumn={conversationsByPipelineColumn}
               onSelect={handleBoardCardSelect}
               onMove={handleBoardMove}
-              getDisabledHint={getPipelineDragHint}
+              onReorder={handleConversationReordered}
               emptyColumnHint={tBoard("dropConversationHere")}
               profiles={profiles}
               onConversationChanged={handleConversationChanged}
+              selectedIds={selectedConversationIds}
+              onToggleSelect={handleToggleSelectConversation}
             />
           )}
         </div>
@@ -1098,6 +1267,31 @@ function InboxPageInner() {
         )}
       </div>
       )}
+
+      {/* Kanban card click opens the thread here instead of switching to
+          the List layout — the board stays exactly where the agent left
+          it underneath. No ContactSidebar in this narrower drawer; the
+          usual List/thread layout above still has the full 3-pane view. */}
+      <Sheet open={kanbanThreadOpen} onOpenChange={setKanbanThreadOpen}>
+        <SheetContent side="right" className="w-full gap-0 p-0 sm:max-w-2xl">
+          {activeConversation && (
+            <MessageThread
+              conversation={activeConversation}
+              contact={activeContact}
+              messages={messages}
+              onMessagesLoaded={handleMessagesLoaded}
+              onNewMessage={handleNewMessage}
+              onUpdateMessage={handleUpdateMessage}
+              onStatusChange={handleStatusChange}
+              onAssignChange={handleAssignChange}
+              onBack={() => setKanbanThreadOpen(false)}
+              resyncToken={resyncToken}
+              onRefresh={handleManualRefresh}
+              activeProvider={activeProvider}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
