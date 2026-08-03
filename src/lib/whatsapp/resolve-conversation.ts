@@ -24,6 +24,7 @@ import { findExistingContact, isUniqueViolation } from '@/lib/contacts/dedupe';
 import { sanitizePhoneForMeta, isValidE164 } from '@/lib/whatsapp/phone-utils';
 import { SendMessageError } from '@/lib/whatsapp/send-message';
 import { resolveAuditUserId, ContactError } from '@/lib/api/v1/contacts';
+import { ensureDefaultPipelineDeal } from '@/lib/deals/ensure-default-deal';
 
 export interface ResolvedConversation {
   conversationId: string;
@@ -210,6 +211,16 @@ async function findOrCreateConversationRow(
     console.error('[resolve-conversation] conversation create error:', convErr);
     throw new SendMessageError('db_error', 'Failed to create conversation', 500);
   }
+
+  // New conversation → auto-link to the account's default pipeline's
+  // first stage (LeilãoDesk spec). Public-API contacts are always
+  // resolved by phone number, so this path is 1:1-only already.
+  await ensureDefaultPipelineDeal(db, {
+    accountId,
+    userId: ownerUserId,
+    contactId,
+    conversationId: newConv.id,
+  });
 
   return newConv.id;
 }

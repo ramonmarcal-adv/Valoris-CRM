@@ -9,6 +9,7 @@ import { runAutomationsForTrigger } from '@/lib/automations/engine'
 import { dispatchInboundToFlows } from '@/lib/flows/engine'
 import { dispatchInboundToAiReply } from '@/lib/ai/auto-reply'
 import { dispatchWebhookEvent } from '@/lib/webhooks/deliver'
+import { ensureDefaultPipelineDeal } from '@/lib/deals/ensure-default-deal'
 import {
   handleTemplateWebhookChange,
   isTemplateWebhookField,
@@ -591,6 +592,19 @@ async function processMessage(
   )
   if (!convResult) return
   const conversation = convResult.conversation
+
+  // New conversation → auto-link to the account's default pipeline's
+  // first stage (LeilãoDesk spec). Meta Cloud API has no group concept,
+  // so every conversation here is 1:1 already.
+  if (convResult.created) {
+    await ensureDefaultPipelineDeal(supabaseAdmin(), {
+      accountId,
+      userId: configOwnerUserId,
+      contactId: contactRecord.id,
+      conversationId: conversation.id,
+      contactLabel: contactRecord.name || contactRecord.phone,
+    })
+  }
 
   // Emit conversation.created as soon as the thread is opened — BEFORE
   // the reaction short-circuit below — so a conversation first opened by
