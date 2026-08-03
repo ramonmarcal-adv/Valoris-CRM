@@ -29,14 +29,16 @@ import { useRealtime } from "@/hooks/use-realtime";
 import { useAuth } from "@/hooks/use-auth";
 import { ConversationList } from "@/components/inbox/conversation-list";
 import { InboxFilterBar } from "@/components/inbox/inbox-filter-bar";
+import { ScheduledMessagesPanel } from "@/components/inbox/scheduled-messages-panel";
 import { ConversationBoard, type ConversationBoardColumn } from "@/components/inbox/conversation-board";
 import { BoardColumnSettings } from "@/components/inbox/board-column-settings";
 import { MessageThread } from "@/components/inbox/message-thread";
 import { ContactSidebar } from "@/components/inbox/contact-sidebar";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Input } from "@/components/ui/input";
 import { useResizablePanelWidth } from "@/hooks/use-resizable-panel-width";
 import { toast } from "sonner";
-import { WifiOff, List, Kanban as KanbanIcon, ChevronDown, Settings } from "lucide-react";
+import { WifiOff, List, Kanban as KanbanIcon, ChevronDown, Settings, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -73,6 +75,7 @@ export default function InboxPage() {
 function InboxPageInner() {
   const t = useTranslations("Inbox.page");
   const tBoard = useTranslations("Inbox.board");
+  const tList = useTranslations("Inbox.conversationList");
   const { user, accountId, canSendMessages, canManageMembers } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1114,41 +1117,55 @@ function InboxPageInner() {
         </div>
       )}
 
-      {/* List/Kanban toggle. Kept as its own toolbar row (not inside
-          ConversationList) because Kanban replaces the whole three-pane
-          layout below, not just the list column. */}
+      {/* List/Kanban toggle + search, in one row to save vertical space
+          (2026-08-03) — kept separate from ConversationList because
+          Kanban replaces the whole three-pane layout below, not just
+          the list column. */}
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2">
-        <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-0.5">
-          <button
-            type="button"
-            onClick={() => handleViewModeChange("list")}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
-              viewMode === "list"
-                ? "bg-muted text-foreground"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            <List className="h-3.5 w-3.5" />
-            {tBoard("viewList")}
-          </button>
-          <button
-            type="button"
-            onClick={() => handleViewModeChange("kanban")}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
-              viewMode === "kanban"
-                ? "bg-muted text-foreground"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            <KanbanIcon className="h-3.5 w-3.5" />
-            {tBoard("viewKanban")}
-          </button>
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1 rounded-lg border border-border bg-card p-0.5">
+            <button
+              type="button"
+              onClick={() => handleViewModeChange("list")}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                viewMode === "list"
+                  ? "bg-muted text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <List className="h-3.5 w-3.5" />
+              {tBoard("viewList")}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleViewModeChange("kanban")}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                viewMode === "kanban"
+                  ? "bg-muted text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <KanbanIcon className="h-3.5 w-3.5" />
+              {tBoard("viewKanban")}
+            </button>
+          </div>
+
+          <div className="relative min-w-0 max-w-xs flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={tList("searchPlaceholder")}
+              className="border-border bg-muted pl-9 text-sm text-foreground placeholder-muted-foreground focus:border-primary/50"
+            />
+          </div>
+          <ScheduledMessagesPanel />
         </div>
 
         {viewMode === "kanban" && (
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <button
               type="button"
               onClick={() => setBoardColumnSettingsOpen(true)}
@@ -1162,12 +1179,10 @@ function InboxPageInner() {
         )}
       </div>
 
-      {/* Search + type/assignment/tag/company filters — shared between
-          List and Kanban (2026-08-03), so switching views keeps the
-          same criteria instead of Kanban seeing everything unfiltered. */}
+      {/* Type/assignment/tag/company filters — shared between List and
+          Kanban (2026-08-03), so switching views keeps the same
+          criteria instead of Kanban seeing everything unfiltered. */}
       <InboxFilterBar
-        search={search}
-        onSearchChange={setSearch}
         typeFilter={typeFilter}
         onTypeFilterChange={setTypeFilter}
         assignmentFilter={assignmentFilter}

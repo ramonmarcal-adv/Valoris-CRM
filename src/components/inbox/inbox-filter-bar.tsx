@@ -4,9 +4,8 @@ import { useMemo } from "react";
 import { cn } from "@/lib/utils";
 import type { Tag } from "@/types";
 import type { InboxAssignmentFilter, InboxTypeFilter } from "@/lib/inbox/conversations";
-import { Search, ChevronDown, X, Inbox as InboxIcon, Shuffle } from "lucide-react";
+import { ChevronDown, X, Inbox as InboxIcon, Shuffle } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -15,11 +14,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ScheduledMessagesPanel } from "./scheduled-messages-panel";
 
 interface InboxFilterBarProps {
-  search: string;
-  onSearchChange: (value: string) => void;
   typeFilter: InboxTypeFilter;
   onTypeFilterChange: (value: InboxTypeFilter) => void;
   assignmentFilter: InboxAssignmentFilter;
@@ -48,8 +44,6 @@ interface InboxFilterBarProps {
  * Purely controlled — all state lives in inbox/page.tsx.
  */
 export function InboxFilterBar({
-  search,
-  onSearchChange,
   typeFilter,
   onTypeFilterChange,
   assignmentFilter,
@@ -106,19 +100,6 @@ export function InboxFilterBar({
 
   return (
     <div className="space-y-2 border-b border-border p-3">
-      <div className="flex items-center gap-1.5">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => onSearchChange(e.target.value)}
-            placeholder={t("searchPlaceholder")}
-            className="border-border bg-muted pl-9 text-sm text-foreground placeholder-muted-foreground focus:border-primary/50"
-          />
-        </div>
-        <ScheduledMessagesPanel />
-      </div>
-
       <div className="flex flex-wrap items-center gap-1">
         <DropdownMenu>
           <DropdownMenuTrigger className="inline-flex items-center justify-center h-7 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground rounded-md hover:bg-muted">
