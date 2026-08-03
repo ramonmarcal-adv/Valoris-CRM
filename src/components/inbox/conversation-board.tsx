@@ -437,7 +437,6 @@ function SortableBoardColumn({
             onConversationChanged={onConversationChanged}
             selected={selectedIds?.has(conv.id)}
             onToggleSelect={onToggleSelect ? () => onToggleSelect(conv.id) : undefined}
-            draggable={column.sortBy === "manual"}
           />
         ))}
       </ColumnDropZone>
@@ -495,7 +494,6 @@ function DraggableConversationCard({
   onConversationChanged,
   selected,
   onToggleSelect,
-  draggable,
 }: {
   conversation: Conversation;
   onSelect: (conversation: Conversation) => void;
@@ -503,16 +501,18 @@ function DraggableConversationCard({
   onConversationChanged: (conversationId: string, patch: Partial<Conversation>) => void;
   selected?: boolean;
   onToggleSelect?: () => void;
-  /** False when the column's sort mode isn't "manual" — the order is
-   *  computed, not stored, so picking the card up to reorder it would
-   *  have no effect. Still a valid cross-column drop target either way
-   *  (droppable stays enabled). */
-  draggable: boolean;
 }) {
+  // Always draggable — cross-column moves must always work. Reordering
+  // WITHIN a column whose sort mode isn't "manual" is a no-op enforced
+  // at drop time (handleDragEnd), not by disabling pickup here: an
+  // earlier version disabled `draggable` for non-manual columns to
+  // prevent that no-op reorder, which had the side effect of also
+  // blocking the card from being picked up to move to ANOTHER column
+  // at all (dnd-kit's `disabled.draggable` disables the drag
+  // entirely, not just same-list reordering).
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: conversation.id,
     data: { type: "card" },
-    disabled: { draggable: !draggable, droppable: false },
   });
 
   const style = {
