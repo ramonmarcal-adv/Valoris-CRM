@@ -1,12 +1,11 @@
 import { supabaseAdmin } from './admin-client'
 import { loadAiConfig } from './config'
 import { buildConversationContext } from './context'
-import { retrieveKnowledge } from './knowledge'
+import { prepareAiGrounding } from './grounding'
 import { generateReply } from './generate'
 import { buildSystemPrompt } from './defaults'
 import { buildHandoffSummary } from './handoff'
 import { logAiUsage } from './usage'
-import { latestUserMessage } from './query'
 import { engineSendText } from '@/lib/flows/meta-send'
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 
@@ -105,18 +104,20 @@ export async function dispatchInboundToAiReply(
       return
     }
 
-    // Ground the reply in the account's knowledge base (best-effort).
-    const knowledge = await retrieveKnowledge(
+    // Ground the reply in the account's knowledge base and any page
+    // the customer linked (both best-effort, run in parallel).
+    const { knowledge, pageContext } = await prepareAiGrounding(
       db,
       accountId,
       config,
-      latestUserMessage(messages),
+      messages,
     )
 
     const systemPrompt = buildSystemPrompt({
       userPrompt: config.systemPrompt,
       mode: 'auto_reply',
       knowledge,
+      pageContext,
     })
 
     const { text, handoff, usage } = await generateReply({

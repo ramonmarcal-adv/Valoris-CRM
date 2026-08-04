@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireRole, toErrorResponse } from '@/lib/auth/account'
-import { isDeliverableUrl } from '@/lib/webhooks/ssrf'
+import { fetchWithGuardedRedirects, readCappedBody } from '@/lib/webhooks/guarded-fetch'
 
 // ============================================================
 // GET /api/link-preview?url=<encoded>
@@ -63,29 +63,6 @@ function extractTitleTag(html: string): string | null {
   return match ? decodeEntities(match[1]) : null
 }
 
-async function fetchWithGuardedRedirects(startUrl: string): Promise<Response | null> {
-  let current = startUrl
-  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
-    if (!(await isDeliverableUrl(current))) return null
-    const response = await fetch(current, {
-      redirect: 'manual',
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-      headers: {
-        // Some sites refuse a bare/unknown UA on the og-scrape path.
-        'User-Agent': 'Mozilla/5.0 (compatible; ValorisCRM-LinkPreview/1.0)',
-      },
-    })
-    if (response.status >= 300 && response.status < 400) {
-      const location = response.headers.get('location')
-      if (!location) return null
-      current = new URL(location, current).toString()
-      continue
-    }
-    return response
-  }
-  return null
-}
-
 export async function GET(request: Request) {
   try {
     await requireRole('viewer')
@@ -113,7 +90,11 @@ export async function GET(request: Request) {
 
     let response: Response | null
     try {
-      response = await fetchWithGuardedRedirects(cacheKey)
+      response = await fetchWithGuardedRedirects(cacheKey, {
+        timeoutMs: FETCH_TIMEOUT_MS,
+        maxRedirects: MAX_REDIRECTS,
+        userAgent: 'Mozilla/5.0 (compatible; ValorisCRM-LinkPreview/1.0)',
+      })
     } catch {
       response = null
     }
@@ -129,17 +110,7 @@ export async function GET(request: Request) {
     // Cap how much of the body we read — the <head> we need is always
     // near the top, and an unbounded read is a memory-exhaustion vector
     // against an attacker-chosen URL.
-    const reader = response.body.getReader()
-    const decoder = new TextDecoder()
-    let html = ''
-    let bytesRead = 0
-    while (bytesRead < MAX_BODY_BYTES) {
-      const { done, value } = await reader.read()
-      if (done) break
-      bytesRead += value.byteLength
-      html += decoder.decode(value, { stream: true })
-    }
-    await reader.cancel().catch(() => {})
+    const html = await readCappedBody(response.body, MAX_BODY_BYTES)
 
     const meta = extractMetaTags(html)
     const result: LinkPreviewResult = {

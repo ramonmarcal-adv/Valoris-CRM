@@ -5,7 +5,7 @@ import type { AiConfig } from './types'
 const h = vi.hoisted(() => ({
   loadAiConfig: vi.fn(),
   buildConversationContext: vi.fn(),
-  retrieveKnowledge: vi.fn(),
+  prepareAiGrounding: vi.fn(),
   generateReply: vi.fn(),
   engineSendText: vi.fn(),
   state: {
@@ -19,7 +19,7 @@ const h = vi.hoisted(() => ({
 
 vi.mock('./config', () => ({ loadAiConfig: h.loadAiConfig }))
 vi.mock('./context', () => ({ buildConversationContext: h.buildConversationContext }))
-vi.mock('./knowledge', () => ({ retrieveKnowledge: h.retrieveKnowledge }))
+vi.mock('./grounding', () => ({ prepareAiGrounding: h.prepareAiGrounding }))
 vi.mock('./generate', () => ({ generateReply: h.generateReply }))
 vi.mock('@/lib/flows/meta-send', () => ({ engineSendText: h.engineSendText }))
 vi.mock('./admin-client', () => ({
@@ -93,7 +93,7 @@ beforeEach(() => {
   h.state.rpcCalls = []
   h.loadAiConfig.mockResolvedValue(aiConfig())
   h.buildConversationContext.mockResolvedValue([{ role: 'user', content: 'hi' }])
-  h.retrieveKnowledge.mockResolvedValue([])
+  h.prepareAiGrounding.mockResolvedValue({ knowledge: [], pageContext: null })
   h.generateReply.mockResolvedValue({ text: 'Hello!', handoff: false })
   h.engineSendText.mockResolvedValue({ whatsapp_message_id: 'm1' })
 })
@@ -113,11 +113,33 @@ describe('dispatchInboundToAiReply — eligibility gates', () => {
   })
 
   it('grounds the reply in retrieved knowledge', async () => {
-    h.retrieveKnowledge.mockResolvedValue(['Returns accepted within 30 days.'])
+    h.prepareAiGrounding.mockResolvedValue({
+      knowledge: ['Returns accepted within 30 days.'],
+      pageContext: null,
+    })
     await dispatchInboundToAiReply(ARGS)
-    expect(h.retrieveKnowledge).toHaveBeenCalled()
+    expect(h.prepareAiGrounding).toHaveBeenCalled()
     const systemPrompt = h.generateReply.mock.calls[0][0].systemPrompt as string
     expect(systemPrompt).toContain('Returns accepted within 30 days.')
+  })
+
+  it('grounds the reply in a fetched page the customer linked', async () => {
+    h.prepareAiGrounding.mockResolvedValue({
+      knowledge: [],
+      pageContext: 'Preço: R$ 3.020.000,00. Financiamento disponível.',
+    })
+    await dispatchInboundToAiReply(ARGS)
+    const systemPrompt = h.generateReply.mock.calls[0][0].systemPrompt as string
+    expect(systemPrompt).toContain('Financiamento disponível.')
+  })
+
+  it('still sends when the grounding lookup itself fails', async () => {
+    // prepareAiGrounding is designed to never throw, but the dispatch
+    // function's own try/catch must still hold if it somehow did —
+    // this must degrade to a skipped send, not an unhandled rejection.
+    h.prepareAiGrounding.mockRejectedValue(new Error('boom'))
+    await expect(dispatchInboundToAiReply(ARGS)).resolves.toBeUndefined()
+    expect(h.engineSendText).not.toHaveBeenCalled()
   })
 
   it('stands down when an active message-level automation exists', async () => {

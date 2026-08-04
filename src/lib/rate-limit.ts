@@ -167,6 +167,16 @@ export const RATE_LIMITS = {
    *  capping a stampede; excess inbounds simply don't get an auto-reply
    *  (they still land in the inbox for a human). */
   aiAutoReplyAccount: { limit: 30, windowMs: 60_000 },
+  /** External-page fetch for AI link-context grounding, per account.
+   *  Fetching an arbitrary URL a lead (or an attacker) supplies is a
+   *  distinct abuse surface (egress + cost) from generateReply's own
+   *  limits above — this bounds how often the server will go fetch
+   *  someone else's page on the account's behalf, independent of how
+   *  many replies are generated. 20/min per account is generous for
+   *  organic conversation volume (one fetch per distinct URL per
+   *  conversation, then cached) while capping a burst of spoofed/
+   *  malicious links. */
+  aiLinkFetchAccount: { limit: 20, windowMs: 60_000 },
 } as const;
 
 /** Test-only helper. Clears the in-memory state so unit tests don't
