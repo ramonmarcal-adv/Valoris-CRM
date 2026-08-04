@@ -1056,6 +1056,43 @@ function MediaDraftPreview({
   onSend: () => void;
   t: ReturnType<typeof useTranslations>;
 }) {
+  // Audio gets its own compact single-row layout — no caption field
+  // (voice notes don't have one), so discard + send sit right beside
+  // the player instead of the player getting a row to itself and the
+  // send button stranded alone on a second row underneath it.
+  if (draft.kind === "audio") {
+    return (
+      <div className="rounded-xl border border-border bg-muted/40 p-3">
+        <div className="flex items-center gap-2">
+          {/* min-w-0 here is safe (unlike message-bubble.tsx's sent-
+              message player): this row has a real resolved width from
+              the composer, not a shrink-to-fit bubble, so flex-1 has
+              something concrete to distribute and won't collapse to
+              the native control's icon-only rendering. */}
+          <audio src={draft.mediaUrl} controls className="h-10 min-w-0 flex-1" />
+          <button
+            type="button"
+            onClick={onDiscard}
+            aria-label={t("removeAttachment")}
+            className="shrink-0 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+          <GatedButton
+            size="sm"
+            canAct={!readOnly}
+            gateReason="sendMessages"
+            disabled={busy}
+            onClick={onSend}
+            className="h-9 w-9 shrink-0 bg-primary p-0 hover:bg-primary/90 disabled:opacity-40"
+          >
+            <Send className="h-4 w-4" />
+          </GatedButton>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-xl border border-border bg-muted/40 p-3">
       <div className="flex items-start gap-3">
@@ -1070,9 +1107,6 @@ function MediaDraftPreview({
           )}
           {draft.kind === "video" && (
             <video src={draft.mediaUrl} controls className="max-h-40 rounded-lg" />
-          )}
-          {draft.kind === "audio" && (
-            <audio src={draft.mediaUrl} controls className="w-full" />
           )}
           {draft.kind === "document" && (
             <div className="flex items-center gap-2 text-sm text-foreground">
@@ -1092,31 +1126,26 @@ function MediaDraftPreview({
       </div>
 
       <div className="mt-2 flex items-end gap-2">
-        {draft.kind !== "audio" && (
-          <input
-            value={draft.caption}
-            maxLength={MEDIA_CAPTION_MAX}
-            onChange={(e) => onCaptionChange(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                onSend();
-              }
-            }}
-            placeholder={t("addCaption")}
-            className="flex-1 rounded-xl border border-border bg-muted px-4 py-2.5 text-sm text-foreground placeholder-muted-foreground outline-none transition-colors focus:border-primary/50"
-          />
-        )}
+        <input
+          value={draft.caption}
+          maxLength={MEDIA_CAPTION_MAX}
+          onChange={(e) => onCaptionChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              onSend();
+            }
+          }}
+          placeholder={t("addCaption")}
+          className="flex-1 rounded-xl border border-border bg-muted px-4 py-2.5 text-sm text-foreground placeholder-muted-foreground outline-none transition-colors focus:border-primary/50"
+        />
         <GatedButton
           size="sm"
           canAct={!readOnly}
           gateReason="sendMessages"
           disabled={busy}
           onClick={onSend}
-          className={cn(
-            "h-9 w-9 shrink-0 bg-primary p-0 hover:bg-primary/90 disabled:opacity-40",
-            draft.kind === "audio" && "ml-auto",
-          )}
+          className="h-9 w-9 shrink-0 bg-primary p-0 hover:bg-primary/90 disabled:opacity-40"
         >
           <Send className="h-4 w-4" />
         </GatedButton>

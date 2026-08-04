@@ -343,14 +343,16 @@ function MessageContent({
       return (
         <div className="min-w-0">
           {message.media_url ? (
-            // `w-full` (not a fixed `w-60`) so the player shrinks with
-            // its bubble on a narrow viewport instead of forcing the
-            // thread to scroll horizontally — `max-w-60` just caps how
-            // wide it gets on a roomy screen. `min-w-0` overrides the
-            // native <audio> control's own intrinsic min-width, which
-            // neither width utility alone would clip — same class of
-            // bug already fixed once in reply-quote.tsx.
-            <audio src={message.media_url} controls className="w-full max-w-60 min-w-0" />
+            // A concrete `w-60` (not `w-full`) is load-bearing: the
+            // bubble around this sizes to its content (shrink-to-fit),
+            // so a percentage width here has nothing definite to
+            // resolve against and the browser was falling back to the
+            // native <audio> control's collapsed/icon-only rendering
+            // (just a tiny circular play button, no scrubber — visible
+            // below ~200px). `max-w-full` keeps the narrow-viewport
+            // protection the old `w-full` was there for, without the
+            // ambiguous-width collapse.
+            <audio src={message.media_url} controls className="w-60 max-w-full" />
           ) : (
             <MediaUnavailable label={t("audio")} t={t} />
           )}
