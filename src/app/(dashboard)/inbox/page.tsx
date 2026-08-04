@@ -28,7 +28,7 @@ import type {
 import { useRealtime } from "@/hooks/use-realtime";
 import { useAuth } from "@/hooks/use-auth";
 import { ConversationList } from "@/components/inbox/conversation-list";
-import { InboxFilterBar } from "@/components/inbox/inbox-filter-bar";
+import { InboxFilterControls, InboxFilterChips } from "@/components/inbox/inbox-filter-bar";
 import { ScheduledMessagesPanel } from "@/components/inbox/scheduled-messages-panel";
 import { ConversationBoard, type ConversationBoardColumn } from "@/components/inbox/conversation-board";
 import { BoardColumnSettings } from "@/components/inbox/board-column-settings";
@@ -1117,12 +1117,57 @@ function InboxPageInner() {
         </div>
       )}
 
-      {/* List/Kanban toggle + search, in one row to save vertical space
-          (2026-08-03) — kept separate from ConversationList because
-          Kanban replaces the whole three-pane layout below, not just
-          the list column. */}
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-1.5">
-        <div className="flex min-w-0 flex-1 items-center gap-2">
+      {/* Search + filters + List/Kanban toggle, all in one row
+          (2026-08-04) — filters used to be their own row underneath;
+          merging saves a full row of vertical space. Order: search ->
+          scheduled messages -> filter dropdowns -> (pushed to the
+          right margin) manage-columns (Kanban only) -> List/Kanban
+          toggle. Wraps onto a second line via flex-wrap on narrow
+          viewports rather than overflowing. */}
+      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-1.5">
+        <div className="relative min-w-[140px] max-w-xs flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={tList("searchPlaceholder")}
+            className="border-border bg-muted pl-9 text-sm text-foreground placeholder-muted-foreground focus:border-primary/50"
+          />
+        </div>
+        <ScheduledMessagesPanel />
+
+        <InboxFilterControls
+          typeFilter={typeFilter}
+          onTypeFilterChange={setTypeFilter}
+          assignmentFilter={assignmentFilter}
+          onAssignmentFilterChange={setAssignmentFilter}
+          tags={tags}
+          selectedTagIds={selectedTagIds}
+          onToggleTag={toggleTag}
+          companies={companies}
+          selectedCompany={selectedCompany}
+          onSelectCompany={setSelectedCompany}
+          unassignedCount={unassignedCount}
+          canSendMessages={canSendMessages}
+          canManageMembers={canManageMembers}
+          releasingLeads={releasingLeads}
+          redistributing={redistributing}
+          onReleaseMyLeads={handleReleaseMyLeads}
+          onRedistributeQueue={handleRedistributeQueue}
+        />
+
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          {viewMode === "kanban" && (
+            <button
+              type="button"
+              onClick={() => setBoardColumnSettingsOpen(true)}
+              title={tBoard("manageColumns")}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs text-foreground transition-colors hover:bg-muted"
+            >
+              <Settings className="h-3.5 w-3.5" />
+              {tBoard("manageColumns")}
+            </button>
+          )}
           <div className="flex shrink-0 items-center gap-1 rounded-lg border border-border bg-card p-0.5">
             <button
               type="button"
@@ -1151,56 +1196,18 @@ function InboxPageInner() {
               {tBoard("viewKanban")}
             </button>
           </div>
-
-          <div className="relative min-w-0 max-w-xs flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={tList("searchPlaceholder")}
-              className="border-border bg-muted pl-9 text-sm text-foreground placeholder-muted-foreground focus:border-primary/50"
-            />
-          </div>
-          <ScheduledMessagesPanel />
         </div>
-
-        {viewMode === "kanban" && (
-          <div className="flex shrink-0 items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setBoardColumnSettingsOpen(true)}
-              title={tBoard("manageColumns")}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs text-foreground transition-colors hover:bg-muted"
-            >
-              <Settings className="h-3.5 w-3.5" />
-              {tBoard("manageColumns")}
-            </button>
-          </div>
-        )}
       </div>
 
-      {/* Type/assignment/tag/company filters — shared between List and
-          Kanban (2026-08-03), so switching views keeps the same
-          criteria instead of Kanban seeing everything unfiltered. */}
-      <InboxFilterBar
-        typeFilter={typeFilter}
-        onTypeFilterChange={setTypeFilter}
-        assignmentFilter={assignmentFilter}
-        onAssignmentFilterChange={setAssignmentFilter}
+      {/* Active tag/company filter chips — only takes up space when
+          such a filter is actually set. */}
+      <InboxFilterChips
         tags={tags}
         selectedTagIds={selectedTagIds}
         onToggleTag={toggleTag}
-        companies={companies}
         selectedCompany={selectedCompany}
         onSelectCompany={setSelectedCompany}
         onClearContactFilters={clearContactFilters}
-        unassignedCount={unassignedCount}
-        canSendMessages={canSendMessages}
-        canManageMembers={canManageMembers}
-        releasingLeads={releasingLeads}
-        redistributing={redistributing}
-        onReleaseMyLeads={handleReleaseMyLeads}
-        onRedistributeQueue={handleRedistributeQueue}
       />
 
       {accountId && (
