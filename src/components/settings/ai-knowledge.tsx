@@ -56,7 +56,7 @@ export function AiKnowledgeCard({
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (!accountId || loadedAccountIdRef.current === accountId) return;
@@ -199,7 +199,7 @@ export function AiKnowledgeCard({
                           size="sm"
                           className="h-8 w-8 p-0"
                           onClick={() => void openEdit(doc.id)}
-                          title="Edit"
+                          title={t('editTooltip')}
                         >
                           <Pencil className="h-4 w-4" />
                         </Button>
@@ -208,7 +208,7 @@ export function AiKnowledgeCard({
                           size="sm"
                           className="h-8 w-8 p-0 text-destructive hover:text-destructive"
                           onClick={() => void remove(doc.id)}
-                          title="Delete"
+                          title={t('deleteTooltip')}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>

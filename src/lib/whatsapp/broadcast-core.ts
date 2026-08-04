@@ -26,7 +26,7 @@ import {
   phoneVariants,
   isRecipientNotAllowedError,
 } from '@/lib/whatsapp/phone-utils';
-import { isMessageTemplate } from '@/lib/whatsapp/template-row-guard';
+import { isMessageTemplate, TEMPLATE_MALFORMED_MESSAGE } from '@/lib/whatsapp/template-row-guard';
 import type { MessageTemplate } from '@/types';
 import { findOrCreateContact } from '@/lib/api/v1/contacts';
 
@@ -141,7 +141,7 @@ export async function createBroadcast(
   if (rawTemplateRow && !isMessageTemplate(rawTemplateRow)) {
     throw new BroadcastError(
       'template_malformed',
-      'Template row is malformed locally — run "Sync from Meta" in Settings to repair it before broadcasting.',
+      TEMPLATE_MALFORMED_MESSAGE,
       500
     );
   }

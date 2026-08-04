@@ -1,4 +1,173 @@
 {
+  "Agents": {
+    "page": {
+      "title": "AI Agents",
+      "subtitle": "Your bring-your-own-key AI agent — set it up, then test it in the playground before it replies to customers in the inbox.",
+      "tabPlayground": "Playground",
+      "tabSetup": "Setup",
+      "tabUsage": "Usage"
+    },
+    "playground": {
+      "title": "Playground",
+      "subtitle": "test replies as if you were a customer",
+      "reset": "Reset",
+      "emptyStateTitle": "Send a message to see how your agent would reply.",
+      "emptyStateBody": "It uses your knowledge base and behaves exactly like the auto-reply bot — including handoff.",
+      "goToSetup": "Not set up yet? Go to Setup",
+      "handoffNotice": "Would hand off to a human here",
+      "thinking": "Thinking…",
+      "inputPlaceholder": "Type a customer message…",
+      "toastNotConfigured": "No agent configured yet — finish Setup first.",
+      "toastNoReply": "Couldn't get a reply.",
+      "toastUnreachable": "Couldn't reach the agent."
+    },
+    "usage": {
+      "title": "Token usage",
+      "description": "Tokens spent on your provider key by drafts and the auto-reply bot. Counts only — no message content is stored here.",
+      "lastNDays": "Last {count} days",
+      "emptyState": "No AI usage in the last {count} days yet.",
+      "emptyStateHint": "This fills in as the assistant drafts and auto-replies.",
+      "statTotalTokens": "Total tokens",
+      "statLlmCalls": "LLM calls",
+      "statAutoReply": "Auto-reply",
+      "statDrafts": "Drafts",
+      "tokensPerDay": "Tokens per day",
+      "tokensSeriesLabel": "Tokens",
+      "byModel": "By model",
+      "tokensAbbrev": "tok",
+      "callsCount": "{count} {count, plural, =1 {call} other {calls}}",
+      "truncatedNotice": "Showing a partial window — usage is high enough that only the most recent records are summarized here.",
+      "toastFailedLoad": "Failed to load usage"
+    }
+  },
+  "Join": {
+    "verifying": "Verifying invitation…",
+    "failReason": {
+      "not_found": {
+        "title": "Invite not found",
+        "body": "This link doesn't match a valid invitation. Double-check the URL or ask the person who invited you to send a new one."
+      },
+      "used": {
+        "title": "Invite already used",
+        "body": "This invitation has already been accepted. If that wasn't you, ask the account admin to send a fresh link."
+      },
+      "expired": {
+        "title": "Invite expired",
+        "body": "This invitation has expired. Ask the account admin to send a new one — they take a few seconds to generate."
+      },
+      "server_error": {
+        "title": "Something went wrong",
+        "body": "We couldn't verify this invitation right now. Try refreshing the page in a moment."
+      }
+    },
+    "tryAgain": "Try again",
+    "createAccountInstead": "Create a new account instead",
+    "signIn": "Sign in",
+    "invitedTo": "You're invited to",
+    "youllJoinAs": "You'll join as",
+    "role": {
+      "admin": "Admin",
+      "agent": "Agent",
+      "viewer": "Viewer"
+    },
+    "linkValidUntil": ". Link valid until {date}.",
+    "accepting": "Accepting…",
+    "acceptInvitation": "Accept invitation",
+    "acceptingMovesLogin": "Accepting moves your login into",
+    "emptyAccountCleanedUp": ". Your empty personal account from signup will be cleaned up.",
+    "conflictTitle": "Can't join {accountName} with this account",
+    "conflictBodyBeforeAccount": "To join",
+    "conflictBodyAfterAccount": ", sign out and sign up again with a different email address. The invite link stays valid as long as it hasn't expired.",
+    "staySignedIn": "Stay signed in",
+    "signingOut": "Signing out…",
+    "signOutDifferentEmail": "Sign out & use a different email",
+    "createAccountAndJoin": "Create account & join",
+    "alreadyHaveAccount": "I already have an account",
+    "toastAlreadyInAnotherAccount": "You are already in another account. Sign in with a different email to join this one.",
+    "toastFailedAccept": "Failed to accept invitation",
+    "toastWelcome": "Welcome to the team",
+    "toastFailedReach": "Could not reach the server",
+    "toastFailedSignOut": "Could not sign out. Try refreshing the page."
+  },
+  "Notifications": {
+    "title": "Notifications",
+    "subtitle": "Conversations other teammates assign to you show up here.",
+    "markAllRead": "Mark all as read",
+    "retry": "Retry",
+    "emptyStateTitle": "No notifications yet",
+    "emptyStateBody": "You'll see an alert here when someone assigns you a conversation.",
+    "unread": "Unread",
+    "toastFailedMarkRead": "Failed to mark notification as read",
+    "toastFailedMarkAll": "Failed to mark all as read"
+  },
+  "Common": {
+    "close": "Close",
+    "gatedButton": {
+      "readOnly": "Read-only — your role can't {reason}",
+      "reasons": {
+        "sendMessages": "send messages",
+        "createPipelines": "create pipelines",
+        "createDeals": "create deals",
+        "createAutomations": "create automations",
+        "addOrImportContacts": "add or import contacts",
+        "deleteContacts": "delete contacts",
+        "createFlows": "create flows",
+        "createBroadcasts": "create broadcasts"
+      }
+    }
+  },
+  "Interactive": {
+    "validation": {
+      "headerTooLong": "Header exceeds the {max}-character limit.",
+      "footerTooLong": "Footer exceeds the {max}-character limit.",
+      "payloadRequired": "Interactive message payload is required.",
+      "bodyRequired": "Interactive message body text is required.",
+      "bodyTooLong": "Body text exceeds the {max}-character limit.",
+      "buttonsRequired": "Add at least one reply button.",
+      "tooManyButtons": "A reply-button message allows at most {max} buttons.",
+      "buttonIdRequired": "Every button needs an id.",
+      "duplicateButtonId": "Duplicate button id \"{id}\".",
+      "buttonLabelRequired": "Every button needs a label.",
+      "buttonLabelTooLong": "Button label \"{label}\" exceeds the {max}-character limit.",
+      "listButtonLabelRequired": "The list needs a button label.",
+      "listButtonLabelTooLong": "List button label exceeds the {max}-character limit.",
+      "sectionsRequired": "Add at least one list section.",
+      "tooManySections": "A list allows at most {max} sections.",
+      "sectionRowsRequired": "Every list section needs rows.",
+      "rowIdRequired": "Every list row needs an id.",
+      "duplicateRowId": "Duplicate list row id \"{id}\".",
+      "rowTitleRequired": "Every list row needs a title.",
+      "rowTitleTooLong": "List row title \"{title}\" exceeds the {max}-character limit.",
+      "rowDescriptionTooLong": "List row description exceeds the {max}-character limit.",
+      "rowsRequired": "Add at least one list row.",
+      "tooManyRows": "A list allows at most {max} rows in total.",
+      "invalidKind": "Interactive message must be reply buttons or a list."
+    },
+    "builder": {
+      "kindButtons": "Reply buttons",
+      "kindList": "List",
+      "body": "Body",
+      "bodyPlaceholder": "What the customer reads above the options",
+      "headerOptional": "Header (optional)",
+      "footerOptional": "Footer (optional)",
+      "showReplyIds": "Show reply IDs (advanced)",
+      "preview": "Preview",
+      "previewEmptyBody": "Message body…",
+      "buttonsCount": "Buttons ({count}/{max})",
+      "idPlaceholder": "id",
+      "buttonLabelPlaceholder": "Button label",
+      "buttonFallback": "Button",
+      "addButton": "Add button",
+      "listButtonLabel": "List button label",
+      "listButtonFallback": "Menu",
+      "rowsCount": "Rows ({count}/{max})",
+      "sectionTitlePlaceholder": "Section title (optional)",
+      "rowTitlePlaceholder": "Row title",
+      "rowDescriptionPlaceholder": "Description (optional)",
+      "addRow": "Add row",
+      "addSection": "Add section"
+    }
+  },
   "LoginPage": {
     "titleAccept": "Sign in to accept",
     "titleWelcome": "Welcome back",
@@ -13,6 +182,40 @@
     "signIn": "Sign in",
     "noAccount": "Don't have an account?",
     "createAccount": "Create account"
+  },
+  "SignupPage": {
+    "checkEmailTitle": "Check your email",
+    "checkEmailDesc": "We've sent a confirmation link to <bold>{email}</bold>. Please check your inbox and click the link to verify your account.",
+    "backToSignIn": "Back to sign in",
+    "titleJoin": "Create account & join",
+    "titleCreate": "Create account",
+    "descJoin": "Verify your email, then accept the invitation to join your team.",
+    "descCreate": "Get started with CRM Template for WhatsApp",
+    "fullNameLabel": "Full name",
+    "fullNamePlaceholder": "John Doe",
+    "emailLabel": "Email",
+    "emailPlaceholder": "you@example.com",
+    "passwordLabel": "Password",
+    "passwordPlaceholder": "At least 6 characters",
+    "confirmPasswordLabel": "Confirm password",
+    "confirmPasswordPlaceholder": "Repeat your password",
+    "creatingAccount": "Creating account...",
+    "createAccount": "Create account",
+    "alreadyHaveAccount": "Already have an account?",
+    "signIn": "Sign in",
+    "errorPasswordsMismatch": "Passwords do not match",
+    "errorPasswordTooShort": "Password must be at least 6 characters"
+  },
+  "ForgotPasswordPage": {
+    "checkEmailTitle": "Check your email",
+    "checkEmailDesc": "We've sent a password reset link to <bold>{email}</bold>. Please check your inbox.",
+    "backToSignIn": "Back to sign in",
+    "title": "Reset password",
+    "description": "Enter your email and we'll send you a reset link",
+    "emailLabel": "Email",
+    "emailPlaceholder": "you@example.com",
+    "sending": "Sending...",
+    "sendResetLink": "Send reset link"
   },
   "Sidebar": {
     "title": "Valoris CRM",
@@ -29,6 +232,7 @@
     "beta": "Beta",
     "unreadConversations": "{count} unread {count, plural, =1 {conversation} other {conversations}}",
     "unreadNotifications": "{count} unread {count, plural, =1 {notification} other {notifications}}",
+    "primaryNavAria": "Primary",
     "roleOwner": "Owner",
     "roleAdmin": "Admin",
     "roleAgent": "Agent",
@@ -196,6 +400,7 @@
       "saveChanges": "Save changes",
       "dragToReorder": "Drag to reorder",
       "changeColor": "Change color",
+      "pickColorAriaLabel": "Pick color {color}",
       "cancel": "Cancel",
       "toastFailedSave": "Failed to save columns",
       "toastSaved": "Columns saved",
@@ -215,6 +420,16 @@
     },
     "messageThread": {
       "backToConversations": "Back to conversations",
+      "toastFailedSend": "Failed to send: {reason}",
+      "toastFailedSendTemplate": "Failed to send template: {reason}",
+      "toastReactionFailed": "Reaction failed: {reason}",
+      "toastWaitForSend": "Wait for the message to finish sending",
+      "toastFailedAssignment": "Failed to update assignment",
+      "documentFallback": "Document",
+      "customerFallback": "Customer",
+      "youAuthorLabel": "You",
+      "unknownFallback": "Unknown",
+      "noCustomerMessages": "No customer messages",
       "hideContactPanel": "Hide contact panel",
       "showContactPanel": "Show contact panel",
       "hideContact": "Hide contact",
@@ -263,6 +478,14 @@
       "sessionExpiredPlaceholder": "Session expired - use a template",
       "typeMessagePlaceholder": "Type a message... (Shift+Enter for new line)",
       "readOnlyTitle": "Read-only — your role can't send messages",
+      "toastAiNotConfigured": "AI isn't set up yet — enable it in Settings → AI Assistant.",
+      "toastAiEmptyReply": "The assistant didn't return a reply.",
+      "toastAiUnreachable": "Couldn't reach the AI assistant.",
+      "toastFileTooLarge": "File is {sizeMb} MB — {kind} limit is {limitMb} MB.",
+      "toastUploadFailed": "Upload failed.",
+      "toastRecordingTooLong": "Recording is too long (over 16 MB).",
+      "toastRecordingUnsupported": "Voice recording isn't supported in this browser.",
+      "toastMicDenied": "Microphone access denied or unavailable.",
       "recording": "Recording… {current} / {max}",
       "cancel": "Cancel",
       "stopAndAttach": "Stop and attach",
@@ -291,6 +514,7 @@
       "scheduleConfirm": "Schedule"
     },
     "bubble": {
+      "sharedImageAlt": "Shared image",
       "photo": "Photo",
       "video": "Video",
       "audio": "Audio",
@@ -528,6 +752,7 @@
       "selectedCount": "{count} selected",
       "clearSelection": "Clear",
       "deleteSelected": "Delete selected",
+      "selectAllOnPageAria": "Select all contacts on this page",
       "tableColumns": {
         "name": "Name",
         "phone": "Phone",
@@ -733,7 +958,15 @@
       "toastFailedMoveDeal": "Failed to move deal",
       "toastFailedCreatePipeline": "Failed to create pipeline",
       "toastPipelineCreated": "Pipeline created",
-      "toastNotLinkedToAccount": "Your profile is not linked to an account."
+      "toastNotLinkedToAccount": "Your profile is not linked to an account.",
+      "defaultPipelineName": "Sales Pipeline",
+      "defaultStages": {
+        "newLead": "New Lead",
+        "qualified": "Qualified",
+        "proposalSent": "Proposal Sent",
+        "negotiation": "Negotiation",
+        "won": "Won"
+      }
     },
     "board": {
       "dropDealHere": "Drop a deal here",
@@ -802,6 +1035,7 @@
       "saveChanges": "Save Changes",
       "dragToReorder": "Drag to reorder",
       "changeColor": "Change color",
+      "pickColorAriaLabel": "Pick color {color}",
       "toastFailedSave": "Failed to save pipeline",
       "toastSaved": "Pipeline saved",
       "toastFailedAddStage": "Failed to add stage",
@@ -843,7 +1077,8 @@
         "date": "Date"
       },
       "errorLoad": "Failed to load broadcasts",
-      "retry": "Retry"
+      "retry": "Retry",
+      "inProgressAria": "Broadcast in progress"
     },
     "status": {
       "draft": "Draft",
@@ -955,7 +1190,11 @@
         "errorLoadTags": "Failed to load tags",
         "errorLoadFields": "Failed to load custom fields",
         "errorCsvParse": "Could not parse CSV file.",
-        "errorCsvMissingPhone": "CSV must have a 'phone' column."
+        "errorCsvMissingPhone": "CSV must have a 'phone' column.",
+        "audienceSummary": "Audience Summary",
+        "calculating": "Calculating…",
+        "estimatedRecipients": "estimated recipients",
+        "selectTypeToEstimate": "Select an audience type to see the estimate."
       },
       "personalize": {
         "title": "Personalize Variables",
@@ -971,6 +1210,7 @@
         "typeContact": "Contact Field",
         "typeCustom": "Custom Field",
         "staticValue": "Static Value",
+        "enterValuePlaceholder": "Enter value...",
         "contactField": "Contact Field",
         "selectContactField": "Select field...",
         "customField": "Custom Field",
@@ -1003,7 +1243,11 @@
         "sending": "Sending...",
         "preparing": "Preparing...",
         "progressDesc": "Processing {current} of {total} recipients...",
-        "toastFailedPreview": "Failed to load preview data"
+        "toastFailedPreview": "Failed to load preview data",
+        "estimatedReach": "Estimated Reach",
+        "language": "Language",
+        "confirmTitle": "Confirm Broadcast",
+        "confirmDesc": "You are about to send this broadcast to <bold>{count}</bold> contacts using the <bold>{name}</bold> template. This action cannot be undone."
       }
     }
   },
@@ -1028,6 +1272,7 @@
       "cancel": "Cancel",
       "deleteTitle": "Delete automation",
       "deleteDesc": "This permanently removes {name} and its execution history. This cannot be undone.",
+      "openMenuAria": "Open menu",
       "toasts": {
         "activated": "Automation activated",
         "paused": "Automation paused",
@@ -1120,12 +1365,19 @@
       "replyIdsHelp": "Comma-separated button/list-row ids to match, exact. Use the same ids you set on a Send Buttons / Send List step.",
       "schedule": "Schedule",
       "scheduleHint": "Cron expression (e.g. 0 9 * * 1-5)",
+      "placeholderSchedule": "Cron expression or HH:mm",
       "active": "Active",
       "activeAria": "Active",
       "save": "Save",
       "saveDraft": "Save Draft",
       "untitled": "Untitled automation",
       "backToAutomations": "Back to automations",
+      "moveUpAria": "Move up",
+      "moveDownAria": "Move down",
+      "delete": "Delete",
+      "kickerCondition": "Condition",
+      "kickerWait": "Wait",
+      "kickerAction": "Action",
       "toasts": {
         "saved": "Automation saved",
         "created": "Automation created",
@@ -1282,6 +1534,23 @@
       "statusFailed": "Failed"
     },
     "builder": {
+      "header": {
+        "backToFlows": "Back to Flows",
+        "flowNamePlaceholder": "Flow name",
+        "unsavedChanges": "Unsaved changes — hit Save to persist",
+        "edited": "Edited",
+        "runs": "Runs",
+        "delete": "Delete",
+        "pause": "Pause",
+        "activate": "Activate",
+        "fixIssuesBeforeActivating": "Fix the issues below before activating",
+        "save": "Save",
+        "descriptionPlaceholder": "Add a short description (internal — customers don't see this)",
+        "descriptionAriaLabel": "Flow description",
+        "statusDraft": "Draft",
+        "statusActive": "Active",
+        "statusArchived": "Archived"
+      },
       "triggerTitle": "Trigger",
       "whenLabel": "When…",
       "triggerKeywordTitle": "A message contains a keyword",
@@ -1305,6 +1574,7 @@
       "deleteNode": "Delete node",
       "canvasView": "Canvas",
       "listView": "List",
+      "editorViewAria": "Editor view",
       "noNodeSelected": "No node selected",
       "noNodeDesc": "Select a node on the canvas to edit its configuration.",
       "form": {
@@ -1326,6 +1596,7 @@
         "buttonLabel": "Tap-to-expand button label (≤20 chars)",
         "rowsHelp": "Rows (1–10 total across all sections)",
         "sectionTitlePlaceholder": "Section {count} title (optional)",
+        "removeSectionAria": "Remove section",
         "rowTitlePlaceholder": "Row title (≤24)",
         "addRow": "Add row",
         "addSection": "Add section",
@@ -1359,6 +1630,9 @@
         "removeFile": "Remove file",
         "uploading": "Uploading…",
         "clickToUpload": "Click to upload (max 16 MB)",
+        "toastFileTooLarge": "File is {sizeMb} MB — limit is {limitMb} MB.",
+        "toastUploadSuccess": "File uploaded.",
+        "toastUploadFailed": "Upload failed.",
         "captionLabel": "Caption (optional, shown under the media)",
         "filenameLabel": "Filename shown to the customer (documents only)",
         "filenamePlaceholder": "invoice.pdf",
@@ -1448,6 +1722,27 @@
   "Settings": {
     "pageTitle": "Settings",
     "pageDesc": "Everything in one place — your account and your workspace. Pick a section to manage it.",
+    "sectionsNavAria": "Settings sections",
+    "quickReplies": {
+      "panelTitle": "Quick replies",
+      "panelDescription": "Reusable snippets — plain text or a saved interactive message — that agents can insert from the inbox composer.",
+      "newQuickReply": "New quick reply",
+      "editTitle": "Edit quick reply",
+      "emptyState": "No quick replies yet. Create one to reuse it across conversations.",
+      "nameLabel": "Name",
+      "namePlaceholder": "e.g. Business hours",
+      "kindText": "Text",
+      "kindInteractive": "Interactive",
+      "contentPlaceholder": "The message text to insert",
+      "cancel": "Cancel",
+      "save": "Save",
+      "confirmDelete": "Delete this quick reply?",
+      "toastNameRequired": "Give the quick reply a name.",
+      "toastFailedSave": "Couldn't save the quick reply.",
+      "toastUpdated": "Quick reply updated.",
+      "toastCreated": "Quick reply created.",
+      "toastFailedDelete": "Couldn't delete the quick reply."
+    },
     "overview": {
       "notSetup": "Not set up yet",
       "connected": "Connected",
@@ -1494,7 +1789,14 @@
       "removeDialogDesc": "Remove <bold>{name}</bold> from the account? They'll be signed out of this account and given a fresh personal account on their next sign-in. Their login isn't deleted.",
       "cancel": "Cancel",
       "removing": "Removing...",
-      "removeBtn": "Remove member"
+      "removeBtn": "Remove member",
+      "memberAvatarAlt": "Member",
+      "toastLoadMembersFailed": "Failed to load members",
+      "toastLoadInvitationsFailed": "Failed to load invitations",
+      "toastServerUnreachable": "Could not reach the server",
+      "toastUpdateRoleFailed": "Failed to update role",
+      "toastRemoveMemberFailed": "Failed to remove member",
+      "toastRevokeInviteFailed": "Failed to revoke invitation"
     },
     "invite": {
       "inviteCreated": "Invite created",
@@ -1522,7 +1824,10 @@
       "labelTooLong": "Label must be {max} characters or fewer",
       "copied": "Invite link copied",
       "clipboardBlocked": "Clipboard blocked — copy the link manually",
-      "whatsappMessage": "Join {accountName} on wacrm using this link (valid for {expiresInDays} days): {url}"
+      "whatsappMessage": "Join {accountName} on wacrm using this link (valid for {expiresInDays} days): {url}",
+      "toastServerUnreachable": "Could not reach the server. Try again?",
+      "defaultAccountName": "our wacrm account",
+      "toastFailedCreateInvitation": "Failed to create invitation"
     },
     "tagsAndFields": {
       "title": "Fields & tags",
@@ -1601,6 +1906,8 @@
       "headerVideo": "Video",
       "headerDocument": "Document",
       "headerTextPlaceholder": "Header text (max 60 chars, optional {{1}})",
+      "headerTextAria": "Header text",
+      "qualityScoreTooltip": "Meta quality score",
       "headerSampleAria": "Sample value for header variable",
       "headerSamplePlaceholder": "Sample value for {{1}} (required for Meta review)",
       
@@ -1740,6 +2047,26 @@
       "step4_4": "Enter the same <strong class=\"text-foreground\">Verify Token</strong> you set here",
       "step4_5": "Subscribe to \"messages\" webhook field",
       "metaDocs": "Meta WhatsApp API Documentation",
+      "toastConfigLoadFailed": "Failed to load WhatsApp configuration",
+      "toastPhoneNumberRequired": "Phone Number ID is required",
+      "toastAccessTokenRequiredInitial": "Access Token is required for initial setup",
+      "toastReenterAccessToken": "Please re-enter the Access Token to save changes",
+      "toastSaveConfigFailed": "Failed to save configuration",
+      "toastRegistrationFailed": "Saved, but Meta couldn't register the number: {error}",
+      "toastRegistrationSkipped": "Credentials saved and verified. Inbound registration was skipped (no PIN) — see Registration status below.",
+      "toastLiveNamed": "Live — {name} can now receive events.",
+      "toastConnectedGeneric": "WhatsApp connected. Events will start flowing within a minute.",
+      "toastTestConnectedNamed": "Connected to {name}",
+      "toastApiConnectionSuccess": "API connection successful",
+      "toastApiConnectionFailed": "API connection failed",
+      "toastConnectionTestFailed": "Connection test failed. Check network and try again.",
+      "toastVerifyLive": "Number is fully wired — Meta is delivering events.",
+      "toastVerifyNotLive": "Number is not fully registered. See the checks below for which step failed.",
+      "toastVerifyUnreachable": "Could not reach the verification endpoint.",
+      "resetConfirm": "This will delete the current WhatsApp config so you can re-enter it. Continue?",
+      "toastResetFailed": "Failed to reset configuration",
+      "toastResetSuccess": "Configuration cleared. You can now re-enter your credentials.",
+      "toastWebhookCopied": "Webhook URL copied to clipboard",
       "providerMetaTab": "Meta Cloud API",
       "providerEvolutionTab": "Evolution API (Groups)",
       "evolution": {
@@ -1884,7 +2211,9 @@
       "useMode": "Use {mode} mode",
       "active": "Active",
       "accentColor": "Accent color",
-      "useTheme": "Use {name} theme"
+      "useTheme": "Use {name} theme",
+      "colorModeAria": "Color mode",
+      "themeIdSr": "Theme id: {id}"
     },
     "security": {
       "title": "Login & security",
@@ -2027,7 +2356,9 @@
       "addDoc": "Add document",
       "reindex": "Reindex",
       "reindexTooltip": "Re-embed all documents (e.g. after adding an embeddings key)",
-      "loading": "Loading…"
+      "loading": "Loading…",
+      "editTooltip": "Edit",
+      "deleteTooltip": "Delete"
     }
   }
 }

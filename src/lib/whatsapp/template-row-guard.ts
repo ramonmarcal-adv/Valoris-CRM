@@ -19,6 +19,14 @@
 
 import type { MessageTemplate } from '@/types';
 
+/**
+ * Shared user-facing text for a malformed local template row —
+ * previously duplicated with slightly different wording between
+ * send-message.ts and broadcast-core.ts.
+ */
+export const TEMPLATE_MALFORMED_MESSAGE =
+  'Template row is malformed locally — run "Sync from Meta" in Settings to repair it.';
+
 export function isMessageTemplate(row: unknown): row is MessageTemplate {
   if (!row || typeof row !== 'object') return false;
   const r = row as Record<string, unknown>;

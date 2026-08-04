@@ -350,7 +350,7 @@ export function BoardColumnSettings({
                         backgroundColor: color,
                         borderColor: newColumnColor === color ? "var(--foreground)" : "transparent",
                       }}
-                      aria-label={`Pick color ${color}`}
+                      aria-label={t("pickColorAriaLabel", { color })}
                     />
                   ))}
                 </div>

@@ -52,7 +52,7 @@ import {
 import { useTranslations } from "next-intl";
 import { unlinkNodeReferences } from "@/lib/flows/edges";
 import type { FlowNodeRow, FlowRow } from "@/lib/flows/types";
-import { NODE_META, slugify, type BuilderNode, type NodeType } from "./shared";
+import { slugify, type BuilderNode, type NodeType } from "./shared";
 
 // ============================================================
 // State shape
@@ -474,8 +474,10 @@ export function FlowEditorProvider({
 
   const addNode = useCallback(
     (type: NodeType): string => {
-      const meta = NODE_META[type];
-      const base = slugify(meta.label, type);
+      // node_key is an internal identifier, not shown to the user — the
+      // node_type itself (already stable snake_case) is a better slug
+      // source than the (now-translated) display label ever was.
+      const base = slugify(type, type);
       let createdKey = base;
       setState((s) => {
         const node_key = uniqueNodeKey(base, s.nodes);

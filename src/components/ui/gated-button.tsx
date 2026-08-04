@@ -33,7 +33,7 @@
 //
 //   <GatedButton
 //     canAct={canCreate}
-//     gateReason="create broadcasts"
+//     gateReason="createBroadcasts"
 //     onClick={() => router.push("/broadcasts/new")}
 //   >
 //     <Plus className="h-4 w-4" /> New Broadcast
@@ -41,25 +41,39 @@
 //
 // `canAct` defaults to true so unrelated usages still work.
 // When `canAct` is false, the button is `disabled` and the
-// wrapping span gets a `title` of `"Read-only — your role
-// can't ${gateReason}"`.
+// wrapping span gets a `title` built from the translated
+// `Common.gatedButton.readOnly` / `Common.gatedButton.reasons.*`
+// messages — `gateReason` is a fixed key (GateReason), not a raw
+// English phrase, so the wording is centralized and translated
+// here rather than each caller hardcoding English.
 // ============================================================
 
 import type { ComponentProps, ReactNode } from "react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+
+/** Keys into `Common.gatedButton.reasons` — add a new one there
+ *  (all 3 locales) before using it here. */
+export type GateReason =
+  | "sendMessages"
+  | "createPipelines"
+  | "createDeals"
+  | "createAutomations"
+  | "addOrImportContacts"
+  | "deleteContacts"
+  | "createFlows"
+  | "createBroadcasts";
 
 interface GatedButtonProps extends Omit<ComponentProps<typeof Button>, "title"> {
   /** False → button is disabled and the wrapper span shows the
    *  "Read-only" tooltip. Defaults to `true` so a `<GatedButton>`
    *  without the prop is just a Button. */
   canAct?: boolean;
-  /** Verb phrase that completes the sentence
-   *  `"Read-only — your role can't <gateReason>"`. Provided
-   *  per-call so each CTA can name what it does ("create flows",
-   *  "send messages", "add contacts"). */
-  gateReason?: string;
+  /** Names what the gated action does, e.g. "createFlows" →
+   *  "Read-only — your role can't create flows" (translated). */
+  gateReason?: GateReason;
   /** Optional fallback title for the non-gated case. */
   title?: string;
   children?: ReactNode;
@@ -74,9 +88,10 @@ export function GatedButton({
   children,
   ...rest
 }: GatedButtonProps) {
+  const t = useTranslations("Common.gatedButton");
   const effectivelyDisabled = disabled || !canAct;
   const tooltip = !canAct && gateReason
-    ? `Read-only — your role can't ${gateReason}`
+    ? t("readOnly", { reason: t(`reasons.${gateReason}`) })
     : title;
 
   return (

@@ -65,14 +65,23 @@ interface GroupInfoSectionProps {
   contact: Contact;
 }
 
-async function postGroupAction(contactId: string, body: Record<string, unknown>) {
+/** `t` is passed in (module scope can't call `useTranslations()`) so the
+ *  thrown message is already translated when the API doesn't return a
+ *  specific `error` — otherwise `err.message` is always truthy (a real
+ *  Error is always thrown here), so callers' own `t("toastActionFailed")`
+ *  fallback for "non-Error thrown value" never actually fires. */
+async function postGroupAction(
+  contactId: string,
+  body: Record<string, unknown>,
+  t: ReturnType<typeof useTranslations>,
+) {
   const res = await fetch("/api/whatsapp/evolution-group", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ contactId, ...body }),
   });
   const json = await res.json();
-  if (!res.ok) throw new Error(json.error || "Action failed");
+  if (!res.ok) throw new Error(json.error || t("toastActionFailed"));
   return json;
 }
 
@@ -134,7 +143,7 @@ export function GroupInfoSection({ contact }: GroupInfoSectionProps) {
     if (!subjectDraft.trim()) return;
     setSavingSubject(true);
     try {
-      await postGroupAction(contact.id, { action: "updateSubject", subject: subjectDraft.trim() });
+      await postGroupAction(contact.id, { action: "updateSubject", subject: subjectDraft.trim() }, t);
       setData((prev) => (prev ? { ...prev, info: { ...prev.info, subject: subjectDraft.trim() } } : prev));
       setSubjectEditing(false);
       toast.success(t("toastSubjectSaved"));
@@ -148,7 +157,7 @@ export function GroupInfoSection({ contact }: GroupInfoSectionProps) {
   const handleSaveDescription = useCallback(async () => {
     setSavingDesc(true);
     try {
-      await postGroupAction(contact.id, { action: "updateDescription", description: descDraft });
+      await postGroupAction(contact.id, { action: "updateDescription", description: descDraft }, t);
       setData((prev) => (prev ? { ...prev, info: { ...prev.info, description: descDraft } } : prev));
       setDescEditing(false);
       toast.success(t("toastDescriptionSaved"));
@@ -163,7 +172,7 @@ export function GroupInfoSection({ contact }: GroupInfoSectionProps) {
     if (!pictureDraft.trim()) return;
     setSavingPicture(true);
     try {
-      await postGroupAction(contact.id, { action: "updatePicture", image: pictureDraft.trim() });
+      await postGroupAction(contact.id, { action: "updatePicture", image: pictureDraft.trim() }, t);
       setData((prev) => (prev ? { ...prev, info: { ...prev.info, pictureUrl: pictureDraft.trim() } } : prev));
       setPictureEditing(false);
       setPictureDraft("");
@@ -184,7 +193,7 @@ export function GroupInfoSection({ contact }: GroupInfoSectionProps) {
         action: "participants",
         participantAction: "add",
         participants: [digits],
-      });
+      }, t);
       toast.success(t("toastParticipantAdded"));
       setAddOpen(false);
       setAddPhone("");
@@ -205,7 +214,7 @@ export function GroupInfoSection({ contact }: GroupInfoSectionProps) {
           action: "participants",
           participantAction: action,
           participants: [target],
-        });
+        }, t);
         const toastKey =
           action === "remove" ? "toastParticipantRemoved" : action === "promote" ? "toastPromoted" : "toastDemoted";
         toast.success(t(toastKey));
@@ -222,7 +231,7 @@ export function GroupInfoSection({ contact }: GroupInfoSectionProps) {
   const handleGetInviteLink = useCallback(async () => {
     setInviteLoading(true);
     try {
-      const result = await postGroupAction(contact.id, { action: "inviteCode" });
+      const result = await postGroupAction(contact.id, { action: "inviteCode" }, t);
       if (!result.inviteCode) throw new Error(t("toastInviteLinkFailed"));
       setInviteCode(result.inviteCode as string);
     } catch (err) {

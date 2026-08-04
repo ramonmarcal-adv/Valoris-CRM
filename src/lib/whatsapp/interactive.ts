@@ -76,24 +76,48 @@ export type InteractiveValidation =
   | { ok: true }
   | { ok: false; error: string }
 
+/** Matches `useTranslations()`'s call signature — passed in by UI
+ *  callers (interactive-builder.tsx, message-composer.tsx) so the
+ *  error actually shown to an agent is translated. Server-side/
+ *  background callers (automation engine, API routes, tests) omit it
+ *  and get the English fallback text below, since those don't run in
+ *  a request-scoped locale context. */
+type Translator = (key: string, values?: Record<string, string | number>) => string
+
 function ok(): InteractiveValidation {
   return { ok: true }
 }
-function fail(error: string): InteractiveValidation {
-  return { ok: false, error }
+
+/** `fallback` is the English text (already interpolated via template
+ *  literal at the call site) used when no `t` is provided; `key`/
+ *  `values` resolve the translated version when it is. */
+function fail(
+  t: Translator | undefined,
+  key: string,
+  values: Record<string, string | number> | undefined,
+  fallback: string,
+): InteractiveValidation {
+  return { ok: false, error: t ? t(key, values) : fallback }
 }
 
 function validateHeaderFooter(
   header: string | undefined,
   footer: string | undefined,
+  t: Translator | undefined,
 ): InteractiveValidation {
   if (header && header.length > INTERACTIVE_LIMITS.headerTextMaxLength) {
     return fail(
+      t,
+      'headerTooLong',
+      { max: INTERACTIVE_LIMITS.headerTextMaxLength },
       `Header exceeds the ${INTERACTIVE_LIMITS.headerTextMaxLength}-character limit.`,
     )
   }
   if (footer && footer.length > INTERACTIVE_LIMITS.footerMaxLength) {
     return fail(
+      t,
+      'footerTooLong',
+      { max: INTERACTIVE_LIMITS.footerMaxLength },
       `Footer exceeds the ${INTERACTIVE_LIMITS.footerMaxLength}-character limit.`,
     )
   }
@@ -107,51 +131,63 @@ function validateHeaderFooter(
  * user-facing message.
  *
  * `unknown` in, narrowed here, so it's safe to call straight on a parsed
- * request body.
+ * request body. `t` is optional — pass `useTranslations("Interactive.validation")`
+ * from a UI caller to get a translated `.error`; omit it (automation
+ * engine, API routes, tests) to get the English fallback.
  */
 export function validateInteractivePayload(
   payload: unknown,
+  t?: Translator,
 ): InteractiveValidation {
   if (!payload || typeof payload !== 'object') {
-    return fail('Interactive message payload is required.')
+    return fail(t, 'payloadRequired', undefined, 'Interactive message payload is required.')
   }
   const p = payload as Partial<InteractiveMessagePayload>
 
   if (typeof p.body !== 'string' || p.body.trim() === '') {
-    return fail('Interactive message body text is required.')
+    return fail(t, 'bodyRequired', undefined, 'Interactive message body text is required.')
   }
   if (p.body.length > INTERACTIVE_LIMITS.bodyMaxLength) {
     return fail(
+      t,
+      'bodyTooLong',
+      { max: INTERACTIVE_LIMITS.bodyMaxLength },
       `Body text exceeds the ${INTERACTIVE_LIMITS.bodyMaxLength}-character limit.`,
     )
   }
-  const hf = validateHeaderFooter(p.header, p.footer)
+  const hf = validateHeaderFooter(p.header, p.footer, t)
   if (!hf.ok) return hf
 
   if (p.kind === 'buttons') {
     const buttons = (p as InteractiveButtonsPayload).buttons
     if (!Array.isArray(buttons) || buttons.length < 1) {
-      return fail('Add at least one reply button.')
+      return fail(t, 'buttonsRequired', undefined, 'Add at least one reply button.')
     }
     if (buttons.length > INTERACTIVE_LIMITS.maxButtons) {
       return fail(
+        t,
+        'tooManyButtons',
+        { max: INTERACTIVE_LIMITS.maxButtons },
         `A reply-button message allows at most ${INTERACTIVE_LIMITS.maxButtons} buttons.`,
       )
     }
     const seen = new Set<string>()
     for (const b of buttons) {
       if (!b || typeof b.id !== 'string' || b.id.trim() === '') {
-        return fail('Every button needs an id.')
+        return fail(t, 'buttonIdRequired', undefined, 'Every button needs an id.')
       }
       if (seen.has(b.id)) {
-        return fail(`Duplicate button id "${b.id}".`)
+        return fail(t, 'duplicateButtonId', { id: b.id }, `Duplicate button id "${b.id}".`)
       }
       seen.add(b.id)
       if (typeof b.title !== 'string' || b.title.trim() === '') {
-        return fail('Every button needs a label.')
+        return fail(t, 'buttonLabelRequired', undefined, 'Every button needs a label.')
       }
       if (b.title.length > INTERACTIVE_LIMITS.buttonTitleMaxLength) {
         return fail(
+          t,
+          'buttonLabelTooLong',
+          { label: b.title, max: INTERACTIVE_LIMITS.buttonTitleMaxLength },
           `Button label "${b.title}" exceeds the ${INTERACTIVE_LIMITS.buttonTitleMaxLength}-character limit.`,
         )
       }
@@ -165,18 +201,24 @@ export function validateInteractivePayload(
       typeof list.button_label !== 'string' ||
       list.button_label.trim() === ''
     ) {
-      return fail('The list needs a button label.')
+      return fail(t, 'listButtonLabelRequired', undefined, 'The list needs a button label.')
     }
     if (list.button_label.length > INTERACTIVE_LIMITS.buttonTitleMaxLength) {
       return fail(
+        t,
+        'listButtonLabelTooLong',
+        { max: INTERACTIVE_LIMITS.buttonTitleMaxLength },
         `List button label exceeds the ${INTERACTIVE_LIMITS.buttonTitleMaxLength}-character limit.`,
       )
     }
     if (!Array.isArray(list.sections) || list.sections.length < 1) {
-      return fail('Add at least one list section.')
+      return fail(t, 'sectionsRequired', undefined, 'Add at least one list section.')
     }
     if (list.sections.length > INTERACTIVE_LIMITS.maxListSections) {
       return fail(
+        t,
+        'tooManySections',
+        { max: INTERACTIVE_LIMITS.maxListSections },
         `A list allows at most ${INTERACTIVE_LIMITS.maxListSections} sections.`,
       )
     }
@@ -184,22 +226,25 @@ export function validateInteractivePayload(
     let total = 0
     for (const section of list.sections) {
       if (!section || !Array.isArray(section.rows)) {
-        return fail('Every list section needs rows.')
+        return fail(t, 'sectionRowsRequired', undefined, 'Every list section needs rows.')
       }
       for (const row of section.rows) {
         total++
         if (!row || typeof row.id !== 'string' || row.id.trim() === '') {
-          return fail('Every list row needs an id.')
+          return fail(t, 'rowIdRequired', undefined, 'Every list row needs an id.')
         }
         if (seen.has(row.id)) {
-          return fail(`Duplicate list row id "${row.id}".`)
+          return fail(t, 'duplicateRowId', { id: row.id }, `Duplicate list row id "${row.id}".`)
         }
         seen.add(row.id)
         if (typeof row.title !== 'string' || row.title.trim() === '') {
-          return fail('Every list row needs a title.')
+          return fail(t, 'rowTitleRequired', undefined, 'Every list row needs a title.')
         }
         if (row.title.length > INTERACTIVE_LIMITS.listRowTitleMaxLength) {
           return fail(
+            t,
+            'rowTitleTooLong',
+            { title: row.title, max: INTERACTIVE_LIMITS.listRowTitleMaxLength },
             `List row title "${row.title}" exceeds the ${INTERACTIVE_LIMITS.listRowTitleMaxLength}-character limit.`,
           )
         }
@@ -209,21 +254,27 @@ export function validateInteractivePayload(
             INTERACTIVE_LIMITS.listRowDescriptionMaxLength
         ) {
           return fail(
+            t,
+            'rowDescriptionTooLong',
+            { max: INTERACTIVE_LIMITS.listRowDescriptionMaxLength },
             `List row description exceeds the ${INTERACTIVE_LIMITS.listRowDescriptionMaxLength}-character limit.`,
           )
         }
       }
     }
-    if (total < 1) return fail('Add at least one list row.')
+    if (total < 1) return fail(t, 'rowsRequired', undefined, 'Add at least one list row.')
     if (total > INTERACTIVE_LIMITS.maxListRowsTotal) {
       return fail(
+        t,
+        'tooManyRows',
+        { max: INTERACTIVE_LIMITS.maxListRowsTotal },
         `A list allows at most ${INTERACTIVE_LIMITS.maxListRowsTotal} rows in total.`,
       )
     }
     return ok()
   }
 
-  return fail('Interactive message must be reply buttons or a list.')
+  return fail(t, 'invalidKind', undefined, 'Interactive message must be reply buttons or a list.')
 }
 
 /**

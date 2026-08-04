@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { sendTemplateMessage } from '@/lib/whatsapp/meta-api'
 import { decrypt } from '@/lib/whatsapp/encryption'
 import type { SendTimeParams } from '@/lib/whatsapp/template-send-builder'
-import { isMessageTemplate } from '@/lib/whatsapp/template-row-guard'
+import { isMessageTemplate, TEMPLATE_MALFORMED_MESSAGE } from '@/lib/whatsapp/template-row-guard'
 import {
   sanitizePhoneForMeta,
   isValidE164,
@@ -170,10 +170,7 @@ export async function POST(request: Request) {
       .maybeSingle()
     if (rawTemplateRow && !isMessageTemplate(rawTemplateRow)) {
       return NextResponse.json(
-        {
-          error:
-            'Template row is malformed locally — run "Sync from Meta" in Settings to repair it before broadcasting.',
-        },
+        { error: TEMPLATE_MALFORMED_MESSAGE },
         { status: 500 },
       )
     }

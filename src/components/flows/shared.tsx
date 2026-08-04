@@ -79,91 +79,77 @@ export interface BuilderNode {
 
 export type NodeCategory = 'messaging' | 'logic' | 'flow';
 
-/** Category labels + the order they render in the add-step menu. */
-export const NODE_CATEGORIES: { id: NodeCategory; label: string }[] = [
-  { id: 'messaging', label: 'Messaging' },
-  { id: 'logic', label: 'Logic & data' },
-  { id: 'flow', label: 'Flow control' },
+/** Category ids + the order they render in the add-step menu. No
+ *  `label` here — labels are translated at render time via
+ *  `t(\`nodeCategories.${id}\`)` against the `Flows.builder` namespace
+ *  (both consumers — flow-builder.tsx, flow-canvas.tsx — already hold
+ *  that `t`), since this is a plain data module and can't call
+ *  `useTranslations()` itself. */
+export const NODE_CATEGORIES: { id: NodeCategory }[] = [
+  { id: 'messaging' },
+  { id: 'logic' },
+  { id: 'flow' },
 ];
 
+/** No `label`/`blurb` here either — same reasoning as NODE_CATEGORIES
+ *  above. Consumers translate via `t(\`nodeMeta.${type}.label\`)` /
+ *  `t(\`nodeMeta.${type}.blurb\`)`. */
 export const NODE_META: Record<
   NodeType,
   {
-    label: string;
     icon: typeof Workflow;
     color: string;
-    blurb: string;
     category: NodeCategory;
   }
 > = {
   start: {
-    label: 'Start',
     icon: PlayCircle,
     color: 'text-emerald-400',
-    blurb: 'Entry point of the flow',
     category: 'flow',
   },
   send_message: {
-    label: 'Send message',
     icon: MessageCircle,
     color: 'text-sky-400',
-    blurb: 'Sends a WhatsApp text message',
     category: 'messaging',
   },
   send_buttons: {
-    label: 'Send buttons',
     icon: ListChecks,
     color: 'text-primary',
-    blurb: 'Sends quick-reply buttons',
     category: 'messaging',
   },
   send_list: {
-    label: 'Send list',
     icon: ListPlus,
     color: 'text-indigo-400',
-    blurb: 'Sends a tappable list of options',
     category: 'messaging',
   },
   send_media: {
-    label: 'Send media',
     icon: Paperclip,
     color: 'text-cyan-400',
-    blurb: 'Sends an image, video, or document',
     category: 'messaging',
   },
   collect_input: {
-    label: 'Collect input',
     icon: Inbox,
     color: 'text-teal-400',
-    blurb: 'Asks a question, saves the reply',
     category: 'logic',
   },
   condition: {
-    label: 'If / else',
     icon: GitFork,
     color: 'text-fuchsia-400',
-    blurb: 'Branches on a rule',
     category: 'logic',
   },
   set_tag: {
-    label: 'Tag contact',
     icon: Tag,
     color: 'text-pink-400',
-    blurb: 'Adds or removes a contact tag',
     category: 'logic',
   },
   handoff: {
-    label: 'Handoff to agent',
     icon: UserPlus,
     color: 'text-amber-400',
-    blurb: 'Hands the conversation to a human',
     category: 'flow',
   },
   end: {
-    label: 'End',
     icon: Flag,
     color: 'text-muted-foreground',
-    blurb: 'Ends the flow',
     category: 'flow',
   },
 };
@@ -176,10 +162,9 @@ export const NODE_META: Record<
  */
 export function groupNodeTypesByCategory(
   types: NodeType[]
-): { id: NodeCategory; label: string; types: NodeType[] }[] {
-  return NODE_CATEGORIES.map(({ id, label }) => ({
+): { id: NodeCategory; types: NodeType[] }[] {
+  return NODE_CATEGORIES.map(({ id }) => ({
     id,
-    label,
     types: types.filter((t) => NODE_META[t].category === id),
   })).filter((group) => group.types.length > 0);
 }
