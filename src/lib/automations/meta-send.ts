@@ -1,4 +1,6 @@
 import { sendTextMessage, sendTemplateMessage } from '@/lib/whatsapp/meta-api'
+import { sendEvolutionText } from '@/lib/whatsapp/evolution-api'
+import { resolveProviderConfig, ProviderNotConfiguredError } from '@/lib/whatsapp/resolve-provider-config'
 import type { InteractiveMessagePayload } from '@/lib/whatsapp/interactive'
 import {
   engineSendInteractiveButtons,
@@ -14,14 +16,20 @@ import {
 import { supabaseAdmin } from './admin-client'
 
 // ------------------------------------------------------------
-// Automation-side Meta sender.
+// Automation-side sender.
 //
-// Mirrors the logic in src/app/api/whatsapp/send/route.ts but uses
-// the service-role client (engine has no cookies) and accepts the
-// user / conversation / contact identifiers the engine already has
-// on hand. Kept here (rather than refactoring the user-facing send
-// route) to avoid risk to the working manual-send path — they can
-// converge in a later refactor.
+// Mirrors the logic in src/app/api/whatsapp/send/route.ts (via
+// resolveProviderConfig — src/lib/whatsapp/resolve-provider-config.ts)
+// but uses the service-role client (engine has no cookies) and
+// accepts the user / conversation / contact identifiers the engine
+// already has on hand. Kept here (rather than refactoring the
+// user-facing send route) to avoid risk to the working manual-send
+// path — they can converge in a later refactor.
+//
+// Templates have no Evolution/Baileys equivalent (see evolution-api.ts's
+// module doc) — an automation's "Send Template" action rejects
+// explicitly on an Evolution-routed account rather than silently
+// misbehaving.
 // ------------------------------------------------------------
 
 interface SendTextArgs {
@@ -131,67 +139,89 @@ async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: str
     throw new Error(`contact phone invalid: ${contact.phone}`)
   }
 
-  // Interim: this module only ever speaks Meta (sendTemplateMessage,
-  // phone-based recipients, no group support) — scoped so a sibling
-  // Evolution row (migration 048) doesn't make .single() throw. Full
-  // resolveProviderConfig() routing for this file is a later step (see
-  // Evolution API integration plan, step 8).
-  const { data: config, error: configErr } = await db
-    .from('whatsapp_config')
-    .select('*')
-    .eq('account_id', input.accountId)
-    .eq('api_type', 'meta_cloud')
-    .single()
-  if (configErr || !config) {
-    throw new Error('WhatsApp not configured for this account')
+  // Automations always target 1:1 contacts (no group action exists
+  // today), so isGroup is always false here.
+  let provider: 'meta_cloud' | 'evolution'
+  let config: Awaited<ReturnType<typeof resolveProviderConfig>>['config']
+  try {
+    ;({ provider, config } = await resolveProviderConfig(db, input.accountId, false))
+  } catch (err) {
+    if (err instanceof ProviderNotConfiguredError) {
+      throw new Error(err.message)
+    }
+    throw err
   }
 
-  const accessToken = decrypt(config.access_token)
+  if (provider === 'evolution' && input.kind === 'template') {
+    throw new Error('Sending a template is not supported when sending via Evolution API.')
+  }
 
-  const attempt = async (phone: string): Promise<string> => {
-    if (input.kind === 'template') {
-      const r = await sendTemplateMessage({
-        phoneNumberId: config.phone_number_id,
+  const encryptedSecret = provider === 'evolution' ? config.api_key : config.access_token
+  const accessToken = decrypt(encryptedSecret!)
+
+  let waMessageId: string
+  if (provider === 'evolution') {
+    // No Meta-shaped "recipient not in allowed list" quirk to retry
+    // around — one shot, same as send-message.ts's evolution branch.
+    try {
+      const r = await sendEvolutionText({
+        apiUrl: config.api_url!,
+        apiKey: accessToken,
+        instanceName: config.instance_name!,
+        to: sanitized,
+        text: input.kind === 'text' ? input.text : '',
+      })
+      waMessageId = r.messageId
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown Evolution API error'
+      throw new Error(`Evolution API error: ${message}`)
+    }
+  } else {
+    const attempt = async (phone: string): Promise<string> => {
+      if (input.kind === 'template') {
+        const r = await sendTemplateMessage({
+          phoneNumberId: config.phone_number_id!,
+          accessToken,
+          to: phone,
+          templateName: input.templateName,
+          language: input.language,
+          params: input.params,
+        })
+        return r.messageId
+      }
+      const r = await sendTextMessage({
+        phoneNumberId: config.phone_number_id!,
         accessToken,
         to: phone,
-        templateName: input.templateName,
-        language: input.language,
-        params: input.params,
+        text: input.text,
       })
       return r.messageId
     }
-    const r = await sendTextMessage({
-      phoneNumberId: config.phone_number_id,
-      accessToken,
-      to: phone,
-      text: input.text,
-    })
-    return r.messageId
-  }
 
-  // Same phone-variant retry as /api/whatsapp/send — Meta sandbox and
-  // numbers registered with/without a trunk 0 both require this to
-  // reliably land a message.
-  const variants = phoneVariants(sanitized)
-  let workingPhone = sanitized
-  let waMessageId = ''
-  let lastError: unknown = null
-  for (const v of variants) {
-    try {
-      waMessageId = await attempt(v)
-      workingPhone = v
-      lastError = null
-      break
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      if (!isRecipientNotAllowedError(msg)) throw err
-      lastError = err
+    // Same phone-variant retry as /api/whatsapp/send — Meta sandbox and
+    // numbers registered with/without a trunk 0 both require this to
+    // reliably land a message.
+    const variants = phoneVariants(sanitized)
+    let workingPhone = sanitized
+    let lastError: unknown = null
+    waMessageId = ''
+    for (const v of variants) {
+      try {
+        waMessageId = await attempt(v)
+        workingPhone = v
+        lastError = null
+        break
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        if (!isRecipientNotAllowedError(msg)) throw err
+        lastError = err
+      }
     }
-  }
-  if (lastError) throw lastError
+    if (lastError) throw lastError
 
-  if (workingPhone !== sanitized) {
-    await db.from('contacts').update({ phone: workingPhone }).eq('id', contact.id)
+    if (workingPhone !== sanitized) {
+      await db.from('contacts').update({ phone: workingPhone }).eq('id', contact.id)
+    }
   }
 
   // Persist the sent message so it appears in the inbox with a real
@@ -211,9 +241,9 @@ async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: str
     status: 'sent',
   })
   if (msgErr) {
-    // Meta already has the message; record the DB error but don't pretend
-    // the send failed. The engine wraps this in a log line.
-    throw new Error(`sent to Meta but DB insert failed: ${msgErr.message}`)
+    // The provider already has the message; record the DB error but
+    // don't pretend the send failed. The engine wraps this in a log line.
+    throw new Error(`sent to provider but DB insert failed: ${msgErr.message}`)
   }
 
   await db

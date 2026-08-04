@@ -347,11 +347,16 @@ function EventLine({ ev }: { ev: EventRow }) {
 function summarizePayload(payload: Record<string, unknown>): string {
   // Show the keys that matter most to a human debugger; full JSON is
   // available via the "Captured vars" details panel for the run.
-  const keys = ["reply_id", "captured_key", "reason", "advancing_to"];
+  // `reason` and `detail` both render (not just the first match) since
+  // an error event's `detail` — the actual underlying failure message —
+  // is exactly what's needed to debug a "reason=send_text_failed"-style
+  // line without guessing.
+  const keys = ["reply_id", "captured_key", "reason", "detail", "advancing_to"];
+  const parts: string[] = [];
   for (const k of keys) {
     if (k in payload && payload[k] !== null && payload[k] !== undefined) {
-      return `${k}=${String(payload[k]).slice(0, 80)}`;
+      parts.push(`${k}=${String(payload[k]).slice(0, 80)}`);
     }
   }
-  return "";
+  return parts.join(" · ");
 }
