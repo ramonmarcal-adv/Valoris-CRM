@@ -99,10 +99,10 @@ export function InboxFilterBar({
   }, [tags]);
 
   return (
-    <div className="space-y-2 border-b border-border p-3">
+    <div className="space-y-1.5 border-b border-border px-3 py-2">
       <div className="flex flex-wrap items-center gap-1">
         <DropdownMenu>
-          <DropdownMenuTrigger className="inline-flex items-center justify-center h-7 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground rounded-md hover:bg-muted">
+          <DropdownMenuTrigger className="inline-flex items-center justify-center h-6 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground rounded-md hover:bg-muted">
             {activeFilter?.label ?? t("filterAll")}
             <ChevronDown className="h-3 w-3" />
           </DropdownMenuTrigger>
@@ -127,7 +127,7 @@ export function InboxFilterBar({
         <DropdownMenu>
           <DropdownMenuTrigger
             className={cn(
-              "inline-flex items-center justify-center h-7 gap-1 px-2 text-xs rounded-md hover:bg-muted",
+              "inline-flex items-center justify-center h-6 gap-1 px-2 text-xs rounded-md hover:bg-muted",
               assignmentFilter !== "all" ? "text-primary" : "text-muted-foreground hover:text-foreground",
             )}
           >
@@ -177,7 +177,7 @@ export function InboxFilterBar({
           <DropdownMenu>
             <DropdownMenuTrigger
               className={cn(
-                "inline-flex items-center justify-center h-7 gap-1 px-2 text-xs rounded-md hover:bg-muted",
+                "inline-flex items-center justify-center h-6 gap-1 px-2 text-xs rounded-md hover:bg-muted",
                 selectedTagIds.length > 0 ? "text-primary" : "text-muted-foreground hover:text-foreground",
               )}
             >
@@ -214,7 +214,7 @@ export function InboxFilterBar({
           <DropdownMenu>
             <DropdownMenuTrigger
               className={cn(
-                "inline-flex max-w-40 items-center justify-center h-7 gap-1 px-2 text-xs rounded-md hover:bg-muted",
+                "inline-flex max-w-40 items-center justify-center h-6 gap-1 px-2 text-xs rounded-md hover:bg-muted",
                 selectedCompany ? "text-primary" : "text-muted-foreground hover:text-foreground",
               )}
             >
