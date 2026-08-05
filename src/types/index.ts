@@ -895,3 +895,198 @@ export interface QuickReply {
   created_at: string;
   updated_at: string;
 }
+
+// ============================================================
+// Operações — Release A core (migrations 060-065)
+//
+// A flexible Folder → Board → Stage → Card module that sits
+// alongside the legacy Pipeline/Deal model (Pipeline/PipelineStage/
+// Deal above), not replacing it. See LEILAODESK_PRD_MESTRE.md.
+// ============================================================
+
+export interface OperationFolder {
+  id: string;
+  account_id: string;
+  /** Max 1 level deep — enforced by a DB trigger, not just convention. */
+  parent_folder_id: string | null;
+  name: string;
+  position: number;
+  archived_at?: string | null;
+  created_by?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OperationBoard {
+  id: string;
+  account_id: string;
+  /** Nullable — a board may live at the account root without a folder. */
+  folder_id: string | null;
+  name: string;
+  card_label_singular: string;
+  card_label_plural: string;
+  color: string;
+  position: number;
+  archived_at?: string | null;
+  created_by?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OperationBoardStage {
+  id: string;
+  board_id: string;
+  name: string;
+  color: string;
+  /** Integer, renumbered in full on reorder — not fractional (few stages per board). */
+  position: number;
+  is_initial: boolean;
+  archived_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type OperationCardPriority = 'low' | 'normal' | 'high' | 'urgent';
+
+export interface OperationCard {
+  id: string;
+  account_id: string;
+  board_id: string;
+  stage_id: string;
+  title: string;
+  description?: string | null;
+  priority: OperationCardPriority;
+  /** Fractional, partitioned per (board_id, stage_id) — reorder rewrites only the moved row. */
+  position: number;
+  assigned_to_user_id?: string | null;
+  archived_at?: string | null;
+  created_by?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type OperationCardFieldType =
+  | 'short_text'
+  | 'long_text'
+  | 'number'
+  | 'currency'
+  | 'date'
+  | 'datetime'
+  | 'checkbox'
+  | 'single_select'
+  | 'multi_select'
+  | 'phone'
+  | 'email'
+  | 'url'
+  | 'user'
+  | 'contact'
+  | 'related_card';
+
+export interface OperationCardFieldDef {
+  id: string;
+  board_id: string;
+  /** Null = visible/required on every stage; set = only on that stage. */
+  stage_id: string | null;
+  name: string;
+  field_type: OperationCardFieldType;
+  field_options: Record<string, unknown>;
+  is_required: boolean;
+  position: number;
+  archived_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OperationCardFieldValue {
+  id: string;
+  card_id: string;
+  field_def_id: string;
+  value_text?: string | null;
+  long_text?: string | null;
+  value_number?: number | null;
+  value_date?: string | null;
+  value_boolean?: boolean | null;
+  /** Polymorphic — auth.users.id / contacts.id / operation_cards.id depending on the field's type. */
+  value_uuid?: string | null;
+  value_multi_select?: string[] | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OperationCardTag {
+  id: string;
+  card_id: string;
+  tag_id: string;
+  created_at: string;
+}
+
+export interface OperationCardRelation {
+  id: string;
+  from_card_id: string;
+  to_card_id: string;
+  relation_type: string;
+  created_by?: string | null;
+  created_at: string;
+}
+
+export interface OperationCardContact {
+  id: string;
+  card_id: string;
+  contact_id: string;
+  relation_label?: string | null;
+  created_at: string;
+}
+
+export interface OperationCardConversation {
+  id: string;
+  card_id: string;
+  conversation_id: string;
+  created_at: string;
+}
+
+export interface OperationCardComment {
+  id: string;
+  card_id: string;
+  account_id: string;
+  user_id?: string | null;
+  comment_text: string;
+  is_internal: boolean;
+  created_at: string;
+}
+
+export interface OperationCardAttachment {
+  id: string;
+  card_id: string;
+  account_id: string;
+  uploaded_by_user_id?: string | null;
+  storage_bucket: string;
+  storage_path: string;
+  file_name: string;
+  mime_type?: string | null;
+  size_bytes?: number | null;
+  created_at: string;
+}
+
+export type OperationCardActivityEventType =
+  | 'card_created'
+  | 'stage_changed'
+  | 'assignee_changed'
+  | 'priority_changed'
+  | 'field_changed'
+  | 'comment_added'
+  | 'relation_added'
+  | 'relation_removed'
+  | 'attachment_added'
+  | 'attachment_removed'
+  | 'archived'
+  | 'unarchived';
+
+export interface OperationCardActivity {
+  id: string;
+  card_id: string;
+  account_id: string;
+  actor_user_id?: string | null;
+  event_type: OperationCardActivityEventType;
+  payload: Record<string, unknown>;
+  created_at: string;
+}

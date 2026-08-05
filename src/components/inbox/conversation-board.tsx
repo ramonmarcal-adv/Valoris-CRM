@@ -22,6 +22,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
+import { computeReorderPosition } from "@/lib/kanban/reorder";
 import type { Conversation, Profile, BoardColumnSortMode } from "@/types";
 import { ConversationCard } from "./conversation-card";
 import {
@@ -83,18 +84,6 @@ interface ConversationBoardProps {
  *  midpoint of its new neighbors, or ±1000 past whichever end it lands
  *  at. Trello-style gap positioning: only the ONE moved row needs a
  *  write, never a renumber of the whole column. */
-function computeReorderPosition(
-  orderedList: Conversation[],
-  index: number,
-): number {
-  const before = orderedList[index - 1]?.kanban_position ?? null;
-  const after = orderedList[index + 1]?.kanban_position ?? null;
-  if (before != null && after != null) return (before + after) / 2;
-  if (before != null) return before + 1000;
-  if (after != null) return after - 1000;
-  return 1000;
-}
-
 export function ConversationBoard({
   columns,
   conversationsByColumn,
@@ -205,7 +194,10 @@ export function ConversationBoard({
 
     const reordered = arrayMove(current, oldIndex, overIndex);
     const newIndex = reordered.findIndex((c) => c.id === conversationId);
-    const newPosition = computeReorderPosition(reordered, newIndex);
+    const newPosition = computeReorderPosition(
+      reordered.map((c) => c.kanban_position),
+      newIndex,
+    );
     onReorder(conversationId, newPosition);
   }
 
