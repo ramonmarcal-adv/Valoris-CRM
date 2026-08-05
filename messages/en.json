@@ -1197,7 +1197,17 @@
       "manageFields": "Custom Fields",
       "addCard": "Add {label}",
       "noStagesYet": "This board has no stages yet",
-      "toastFailedMoveCard": "Failed to move card"
+      "toastFailedMoveCard": "Failed to move card",
+      "viewKanban": "Kanban",
+      "viewList": "List"
+    },
+    "listView": {
+      "title": "Title",
+      "stage": "Stage",
+      "priority": "Priority",
+      "assignee": "Assignee",
+      "unassigned": "Unassigned",
+      "empty": "No cards yet"
     },
     "cardPage": {
       "backToOperations": "Back to board",
@@ -1213,6 +1223,7 @@
       "customFields": "Custom fields",
       "missingRequiredFields": "{count, plural, =1 {1 required field is} other {# required fields are}} missing for this stage",
       "linkedContacts": "Linked contacts",
+      "linkedConversations": "Linked conversations",
       "relatedCards": "Related cards",
       "attachments": "Attachments",
       "comments": "Comments",
@@ -1277,6 +1288,13 @@
         "selectContact": "Select a contact",
         "add": "Add",
         "toastFailed": "Failed to update contacts"
+      },
+      "conversations": {
+        "noConversations": "No linked conversations yet",
+        "unknownConversation": "Unknown conversation",
+        "selectConversation": "Select a conversation",
+        "add": "Add",
+        "toastFailed": "Failed to update conversations"
       }
     }
   },

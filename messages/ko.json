@@ -1197,7 +1197,17 @@
       "manageFields": "사용자 지정 필드",
       "addCard": "{label} 추가",
       "noStagesYet": "이 보드에는 아직 단계가 없습니다",
-      "toastFailedMoveCard": "카드 이동에 실패했습니다"
+      "toastFailedMoveCard": "카드 이동에 실패했습니다",
+      "viewKanban": "칸반",
+      "viewList": "목록"
+    },
+    "listView": {
+      "title": "제목",
+      "stage": "단계",
+      "priority": "우선순위",
+      "assignee": "담당자",
+      "unassigned": "담당자 없음",
+      "empty": "아직 카드가 없습니다"
     },
     "cardPage": {
       "backToOperations": "보드로 돌아가기",
@@ -1213,6 +1223,7 @@
       "customFields": "사용자 지정 필드",
       "missingRequiredFields": "이 단계에 필수 필드 {count}개가 비어 있습니다",
       "linkedContacts": "연결된 연락처",
+      "linkedConversations": "연결된 대화",
       "relatedCards": "관련 카드",
       "attachments": "첨부 파일",
       "comments": "댓글",
@@ -1277,6 +1288,13 @@
         "selectContact": "연락처 선택",
         "add": "추가",
         "toastFailed": "연락처 업데이트에 실패했습니다"
+      },
+      "conversations": {
+        "noConversations": "아직 연결된 대화가 없습니다",
+        "unknownConversation": "알 수 없는 대화",
+        "selectConversation": "대화 선택",
+        "add": "추가",
+        "toastFailed": "대화 업데이트에 실패했습니다"
       }
     }
   },

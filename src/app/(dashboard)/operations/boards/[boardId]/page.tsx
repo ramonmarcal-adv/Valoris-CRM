@@ -7,10 +7,12 @@ import { useCan } from "@/hooks/use-can";
 import { moveCardToStage, reorderCardWithinStage } from "@/lib/operations/move-card";
 import { resolveInitialStageId } from "@/lib/operations/board-stages";
 import { BoardKanban } from "@/components/operations/board-kanban";
+import { BoardListView } from "@/components/operations/board-list-view";
 import { BoardStageSettings } from "@/components/operations/board-stage-settings";
 import { BoardFieldDefsSettings } from "@/components/operations/board-field-defs-settings";
 import { CardForm } from "@/components/operations/card-form";
 import { GatedButton } from "@/components/ui/gated-button";
+import { cn } from "@/lib/utils";
 import type {
   OperationBoard,
   OperationBoardStage,
@@ -18,10 +20,13 @@ import type {
   OperationCardFieldDef,
   Profile,
 } from "@/types";
-import { ArrowLeft, ListFilter, Plus, Settings, SlidersHorizontal } from "lucide-react";
+import { ArrowLeft, KanbanSquare, List, ListFilter, Plus, Settings, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
+
+type BoardViewMode = "kanban" | "list";
+const VIEW_MODE_STORAGE_KEY = "wacrm:operations:view-mode";
 
 export default function OperationBoardPage() {
   const t = useTranslations("Operations.boardPage");
@@ -41,6 +46,27 @@ export default function OperationBoardPage() {
   const [fieldDefsOpen, setFieldDefsOpen] = useState(false);
   const [cardFormOpen, setCardFormOpen] = useState(false);
   const [cardFormDefaultStageId, setCardFormDefaultStageId] = useState<string>("");
+
+  const [viewMode, setViewMode] = useState<BoardViewMode>("kanban");
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(VIEW_MODE_STORAGE_KEY);
+      if (stored === "kanban" || stored === "list") {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setViewMode(stored);
+      }
+    } catch {
+      // localStorage can throw in private-browsing / sandboxed contexts.
+    }
+  }, []);
+  function handleViewModeChange(mode: BoardViewMode) {
+    setViewMode(mode);
+    try {
+      localStorage.setItem(VIEW_MODE_STORAGE_KEY, mode);
+    } catch {
+      // Persistence is best-effort; ignore storage failures.
+    }
+  }
 
   const load = useCallback(async () => {
     const [{ data: b }, { data: s }, { data: c }, { data: fd }, { data: profiles }] = await Promise.all([
@@ -152,6 +178,30 @@ export default function OperationBoardPage() {
             <Plus className="mr-1 h-4 w-4" />
             {t("addCard", { label: board.card_label_singular })}
           </GatedButton>
+          <div className="flex shrink-0 items-center gap-1 rounded-lg border border-border bg-card p-0.5">
+            <button
+              type="button"
+              onClick={() => handleViewModeChange("kanban")}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                viewMode === "kanban" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <KanbanSquare className="h-3.5 w-3.5" />
+              {t("viewKanban")}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleViewModeChange("list")}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                viewMode === "list" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <List className="h-3.5 w-3.5" />
+              {t("viewList")}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -168,7 +218,7 @@ export default function OperationBoardPage() {
             {t("manageStages")}
           </GatedButton>
         </div>
-      ) : (
+      ) : viewMode === "kanban" ? (
         <BoardKanban
           stages={stages}
           cards={cards}
@@ -176,6 +226,13 @@ export default function OperationBoardPage() {
           onOpenCard={(card) => router.push(`/operations/cards/${card.id}`)}
           onAddCard={handleAddCard}
           onCardMoved={handleCardMoved}
+        />
+      ) : (
+        <BoardListView
+          stages={stages}
+          cards={cards}
+          profilesById={profilesByUserId}
+          onOpenCard={(card) => router.push(`/operations/cards/${card.id}`)}
         />
       )}
 

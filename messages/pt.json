@@ -1197,7 +1197,17 @@
       "manageFields": "Campos Personalizados",
       "addCard": "Adicionar {label}",
       "noStagesYet": "Este quadro ainda não tem fases",
-      "toastFailedMoveCard": "Falha ao mover card"
+      "toastFailedMoveCard": "Falha ao mover card",
+      "viewKanban": "Kanban",
+      "viewList": "Lista"
+    },
+    "listView": {
+      "title": "Título",
+      "stage": "Fase",
+      "priority": "Prioridade",
+      "assignee": "Responsável",
+      "unassigned": "Sem responsável",
+      "empty": "Nenhum card ainda"
     },
     "cardPage": {
       "backToOperations": "Voltar ao quadro",
@@ -1213,6 +1223,7 @@
       "customFields": "Campos personalizados",
       "missingRequiredFields": "{count, plural, =1 {1 campo obrigatório está} other {# campos obrigatórios estão}} faltando nesta fase",
       "linkedContacts": "Contatos vinculados",
+      "linkedConversations": "Conversas vinculadas",
       "relatedCards": "Cards relacionados",
       "attachments": "Anexos",
       "comments": "Comentários",
@@ -1277,6 +1288,13 @@
         "selectContact": "Selecionar um contato",
         "add": "Adicionar",
         "toastFailed": "Falha ao atualizar contatos"
+      },
+      "conversations": {
+        "noConversations": "Nenhuma conversa vinculada ainda",
+        "unknownConversation": "Conversa desconhecida",
+        "selectConversation": "Selecionar uma conversa",
+        "add": "Adicionar",
+        "toastFailed": "Falha ao atualizar conversas"
       }
     }
   },
