@@ -1199,7 +1199,10 @@
       "noStagesYet": "이 보드에는 아직 단계가 없습니다",
       "toastFailedMoveCard": "카드 이동에 실패했습니다",
       "viewKanban": "칸반",
-      "viewList": "목록"
+      "viewList": "목록",
+      "viewCalendar": "캘린더",
+      "viewOverview": "개요",
+      "manageTemplates": "템플릿"
     },
     "listView": {
       "title": "제목",
@@ -1222,6 +1225,8 @@
       "tags": "태그",
       "customFields": "사용자 지정 필드",
       "missingRequiredFields": "이 단계에 필수 필드 {count}개가 비어 있습니다",
+      "tasks": "작업",
+      "checklists": "체크리스트",
       "linkedContacts": "연결된 연락처",
       "linkedConversations": "연결된 대화",
       "relatedCards": "관련 카드",
@@ -1295,7 +1300,144 @@
         "selectConversation": "대화 선택",
         "add": "추가",
         "toastFailed": "대화 업데이트에 실패했습니다"
+      },
+      "tasks": {
+        "toastFailedSave": "작업 저장에 실패했습니다",
+        "newTaskPlaceholder": "새 작업",
+        "applyTemplate": "템플릿 적용"
+      },
+      "checklists": {
+        "defaultTitle": "체크리스트",
+        "toastFailed": "체크리스트 업데이트에 실패했습니다",
+        "noChecklists": "아직 체크리스트가 없습니다",
+        "newItemPlaceholder": "새 항목",
+        "addChecklist": "체크리스트 추가"
       }
+    },
+    "taskDetail": {
+      "title": "작업",
+      "status": "상태",
+      "statusValue": {
+        "todo": "할 일",
+        "in_progress": "진행 중",
+        "done": "완료",
+        "cancelled": "취소됨"
+      },
+      "priority": "우선순위",
+      "assignee": "담당자",
+      "unassigned": "담당자 없음",
+      "startDate": "시작일",
+      "dueAt": "마감일",
+      "section": "섹션",
+      "sectionPlaceholder": "예: 문서화",
+      "description": "설명",
+      "subtasks": "하위 작업",
+      "remove": "제거",
+      "newSubtaskPlaceholder": "새 하위 작업",
+      "autoComplete": "모든 하위 작업이 완료되면 자동으로 완료 처리",
+      "checklist": "체크리스트",
+      "attachments": "첨부 파일",
+      "comments": "댓글",
+      "toastFailedSave": "작업 저장에 실패했습니다"
+    },
+    "applyTemplate": {
+      "title": "템플릿 적용",
+      "noTemplates": "이 보드에 사용할 수 있는 템플릿이 없습니다",
+      "selectTemplate": "템플릿",
+      "selectTemplatePlaceholder": "템플릿 선택",
+      "preventDuplicate": "이 카드에 이 템플릿을 두 번 적용하지 않기",
+      "cancel": "취소",
+      "applying": "적용 중...",
+      "apply": "적용",
+      "toastFailedDuplicate": "이 템플릿은 이미 이 카드에 적용되었습니다",
+      "toastFailed": "템플릿 적용에 실패했습니다",
+      "toastApplied": "템플릿이 적용되었습니다"
+    },
+    "taskTemplateEditor": {
+      "title": "작업 템플릿",
+      "noTemplates": "아직 템플릿이 없습니다",
+      "scopeBoard": "이 보드",
+      "scopeGlobal": "전역 (모든 보드)",
+      "newTemplate": "새 템플릿",
+      "editTemplate": "템플릿 편집",
+      "name": "이름",
+      "description": "설명",
+      "priority": "우선순위",
+      "dueOffsetDays": "마감 기한 (일)",
+      "dueOffsetDaysPlaceholder": "예: 3",
+      "assigneeMode": "기본 담당자",
+      "assigneeModeValue": {
+        "none": "없음",
+        "specific_user": "특정 사용자",
+        "card_assignee": "카드 담당자와 동일"
+      },
+      "specificUser": "사용자",
+      "specificUserPlaceholder": "사용자 선택",
+      "section": "섹션",
+      "scope": "범위",
+      "subtasks": "하위 작업",
+      "newSubtaskPlaceholder": "새 하위 작업",
+      "checklistItems": "체크리스트 항목",
+      "newChecklistItemPlaceholder": "새 항목",
+      "cancel": "취소",
+      "save": "저장",
+      "saving": "저장 중...",
+      "toastFailedSave": "템플릿 저장에 실패했습니다",
+      "toastSaved": "템플릿이 저장되었습니다",
+      "toastFailedDelete": "템플릿 삭제에 실패했습니다",
+      "toastDeleted": "템플릿이 삭제되었습니다"
+    },
+    "indicatorSettings": {
+      "title": "보드 지표",
+      "noIndicators": "아직 사용자 지정 지표가 없습니다",
+      "name": "이름",
+      "aggType": "집계",
+      "field": "필드",
+      "fieldPlaceholder": "필드 선택",
+      "filterStage": "단계",
+      "optional": "선택 사항",
+      "allStages": "모든 단계",
+      "addIndicator": "지표 추가",
+      "done": "완료",
+      "toastFailedAdd": "지표 추가에 실패했습니다",
+      "toastFailedRemove": "지표 제거에 실패했습니다"
+    },
+    "aggType": {
+      "count": "개수",
+      "sum": "합계",
+      "avg": "평균",
+      "min": "최소",
+      "max": "최대",
+      "percentage": "백분율"
+    },
+    "overview": {
+      "manageIndicators": "지표 관리",
+      "activeCards": "진행 중인 카드",
+      "completedCards": "완료된 카드",
+      "avgProgress": "평균 진행률",
+      "tasksPending": "대기 중인 작업",
+      "tasksOverdue": "지연된 작업",
+      "tasksDueToday": "오늘 마감",
+      "tasksDueThisWeek": "이번 주 마감"
+    },
+    "calendar": {
+      "weekdays": {
+        "sun": "일",
+        "mon": "월",
+        "tue": "화",
+        "wed": "수",
+        "thu": "목",
+        "fri": "금",
+        "sat": "토"
+      },
+      "today": "오늘",
+      "mode": {
+        "month": "월",
+        "week": "주",
+        "agenda": "일정"
+      },
+      "noFieldConfigured": "아직 이 보드의 캘린더에 날짜 필드가 설정되지 않았습니다. 사용자 지정 필드에서 설정하세요.",
+      "agendaEmpty": "다가오는 일정이 없습니다"
     }
   },
   "Broadcasts": {

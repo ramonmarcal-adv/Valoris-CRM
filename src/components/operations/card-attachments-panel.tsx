@@ -11,7 +11,14 @@ import { useTranslations } from "next-intl";
 
 const CARD_ATTACHMENTS_MAX_BYTES = 25 * 1024 * 1024;
 
-export function CardAttachmentsPanel({ cardId, accountId }: { cardId: string; accountId: string }) {
+interface CardAttachmentsPanelProps {
+  cardId: string;
+  accountId: string;
+  /** Omit for the Card's general attachments; pass to scope to one Task's own attachments (074). */
+  taskId?: string | null;
+}
+
+export function CardAttachmentsPanel({ cardId, accountId, taskId }: CardAttachmentsPanelProps) {
   const t = useTranslations("Operations.cardDetail.attachments");
   const supabase = createClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -20,13 +27,11 @@ export function CardAttachmentsPanel({ cardId, accountId }: { cardId: string; ac
   const [uploading, setUploading] = useState(false);
 
   const load = useCallback(async () => {
-    const { data } = await supabase
-      .from("operation_card_attachments")
-      .select("*")
-      .eq("card_id", cardId)
-      .order("created_at", { ascending: false });
+    let query = supabase.from("operation_card_attachments").select("*").eq("card_id", cardId);
+    query = taskId ? query.eq("task_id", taskId) : query.is("task_id", null);
+    const { data } = await query.order("created_at", { ascending: false });
     setAttachments((data ?? []) as OperationCardAttachment[]);
-  }, [supabase, cardId]);
+  }, [supabase, cardId, taskId]);
 
   useEffect(() => {
     load();
@@ -50,6 +55,7 @@ export function CardAttachmentsPanel({ cardId, accountId }: { cardId: string; ac
       const { error } = await supabase.from("operation_card_attachments").insert({
         card_id: cardId,
         account_id: accountId,
+        task_id: taskId ?? null,
         uploaded_by_user_id: user?.id ?? null,
         storage_bucket: "card-attachments",
         storage_path: path,

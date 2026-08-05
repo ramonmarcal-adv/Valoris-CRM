@@ -13,7 +13,14 @@ function formatDateTime(iso: string) {
   return new Date(iso).toLocaleString();
 }
 
-export function CardCommentsPanel({ cardId, accountId }: { cardId: string; accountId: string }) {
+interface CardCommentsPanelProps {
+  cardId: string;
+  accountId: string;
+  /** Omit for the Card's general comments; pass to scope to one Task's own thread (074). */
+  taskId?: string | null;
+}
+
+export function CardCommentsPanel({ cardId, accountId, taskId }: CardCommentsPanelProps) {
   const t = useTranslations("Operations.cardDetail.comments");
   const supabase = createClient();
 
@@ -24,13 +31,15 @@ export function CardCommentsPanel({ cardId, accountId }: { cardId: string; accou
   const [sending, setSending] = useState(false);
 
   const load = useCallback(async () => {
+    let query = supabase.from("operation_card_comments").select("*").eq("card_id", cardId);
+    query = taskId ? query.eq("task_id", taskId) : query.is("task_id", null);
     const [{ data: rows }, { data: profiles }] = await Promise.all([
-      supabase.from("operation_card_comments").select("*").eq("card_id", cardId).order("created_at", { ascending: false }),
+      query.order("created_at", { ascending: false }),
       supabase.from("profiles").select("*"),
     ]);
     setComments((rows ?? []) as OperationCardComment[]);
     setProfilesByUserId(new Map(((profiles ?? []) as Profile[]).map((p) => [p.user_id, p])));
-  }, [supabase, cardId]);
+  }, [supabase, cardId, taskId]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -47,6 +56,7 @@ export function CardCommentsPanel({ cardId, accountId }: { cardId: string; accou
     const { error } = await supabase.from("operation_card_comments").insert({
       card_id: cardId,
       account_id: accountId,
+      task_id: taskId ?? null,
       user_id: user?.id ?? null,
       comment_text: trimmed,
       is_internal: isInternal,

@@ -1199,7 +1199,10 @@
       "noStagesYet": "Este quadro ainda não tem fases",
       "toastFailedMoveCard": "Falha ao mover card",
       "viewKanban": "Kanban",
-      "viewList": "Lista"
+      "viewList": "Lista",
+      "viewCalendar": "Calendário",
+      "viewOverview": "Visão Geral",
+      "manageTemplates": "Modelos"
     },
     "listView": {
       "title": "Título",
@@ -1222,6 +1225,8 @@
       "tags": "Etiquetas",
       "customFields": "Campos personalizados",
       "missingRequiredFields": "{count, plural, =1 {1 campo obrigatório está} other {# campos obrigatórios estão}} faltando nesta fase",
+      "tasks": "Tarefas",
+      "checklists": "Checklists",
       "linkedContacts": "Contatos vinculados",
       "linkedConversations": "Conversas vinculadas",
       "relatedCards": "Cards relacionados",
@@ -1295,7 +1300,144 @@
         "selectConversation": "Selecionar uma conversa",
         "add": "Adicionar",
         "toastFailed": "Falha ao atualizar conversas"
+      },
+      "tasks": {
+        "toastFailedSave": "Falha ao salvar tarefa",
+        "newTaskPlaceholder": "Nova tarefa",
+        "applyTemplate": "Aplicar Modelo"
+      },
+      "checklists": {
+        "defaultTitle": "Checklist",
+        "toastFailed": "Falha ao atualizar checklist",
+        "noChecklists": "Nenhum checklist ainda",
+        "newItemPlaceholder": "Novo item",
+        "addChecklist": "Adicionar checklist"
       }
+    },
+    "taskDetail": {
+      "title": "Tarefa",
+      "status": "Status",
+      "statusValue": {
+        "todo": "A fazer",
+        "in_progress": "Em andamento",
+        "done": "Concluída",
+        "cancelled": "Cancelada"
+      },
+      "priority": "Prioridade",
+      "assignee": "Responsável",
+      "unassigned": "Sem responsável",
+      "startDate": "Data de início",
+      "dueAt": "Prazo",
+      "section": "Seção",
+      "sectionPlaceholder": "ex.: Documentação",
+      "description": "Descrição",
+      "subtasks": "Subtarefas",
+      "remove": "Remover",
+      "newSubtaskPlaceholder": "Nova subtarefa",
+      "autoComplete": "Concluir automaticamente quando todas as subtarefas forem concluídas",
+      "checklist": "Checklist",
+      "attachments": "Anexos",
+      "comments": "Comentários",
+      "toastFailedSave": "Falha ao salvar tarefa"
+    },
+    "applyTemplate": {
+      "title": "Aplicar Modelo",
+      "noTemplates": "Nenhum modelo disponível para este quadro",
+      "selectTemplate": "Modelo",
+      "selectTemplatePlaceholder": "Selecionar um modelo",
+      "preventDuplicate": "Impedir aplicar este modelo duas vezes neste card",
+      "cancel": "Cancelar",
+      "applying": "Aplicando...",
+      "apply": "Aplicar",
+      "toastFailedDuplicate": "Este modelo já foi aplicado neste card",
+      "toastFailed": "Falha ao aplicar modelo",
+      "toastApplied": "Modelo aplicado"
+    },
+    "taskTemplateEditor": {
+      "title": "Modelos de Tarefas",
+      "noTemplates": "Nenhum modelo ainda",
+      "scopeBoard": "Este quadro",
+      "scopeGlobal": "Global (todos os quadros)",
+      "newTemplate": "Novo Modelo",
+      "editTemplate": "Editar Modelo",
+      "name": "Nome",
+      "description": "Descrição",
+      "priority": "Prioridade",
+      "dueOffsetDays": "Prazo (dias)",
+      "dueOffsetDaysPlaceholder": "ex.: 3",
+      "assigneeMode": "Responsável padrão",
+      "assigneeModeValue": {
+        "none": "Nenhum",
+        "specific_user": "Usuário específico",
+        "card_assignee": "Mesmo responsável do card"
+      },
+      "specificUser": "Usuário",
+      "specificUserPlaceholder": "Selecionar um usuário",
+      "section": "Seção",
+      "scope": "Escopo",
+      "subtasks": "Subtarefas",
+      "newSubtaskPlaceholder": "Nova subtarefa",
+      "checklistItems": "Itens do checklist",
+      "newChecklistItemPlaceholder": "Novo item",
+      "cancel": "Cancelar",
+      "save": "Salvar",
+      "saving": "Salvando...",
+      "toastFailedSave": "Falha ao salvar modelo",
+      "toastSaved": "Modelo salvo",
+      "toastFailedDelete": "Falha ao excluir modelo",
+      "toastDeleted": "Modelo excluído"
+    },
+    "indicatorSettings": {
+      "title": "Indicadores do Quadro",
+      "noIndicators": "Nenhum indicador personalizado ainda",
+      "name": "Nome",
+      "aggType": "Agregação",
+      "field": "Campo",
+      "fieldPlaceholder": "Selecionar um campo",
+      "filterStage": "Fase",
+      "optional": "opcional",
+      "allStages": "Todas as fases",
+      "addIndicator": "Adicionar Indicador",
+      "done": "Concluído",
+      "toastFailedAdd": "Falha ao adicionar indicador",
+      "toastFailedRemove": "Falha ao remover indicador"
+    },
+    "aggType": {
+      "count": "Contagem",
+      "sum": "Soma",
+      "avg": "Média",
+      "min": "Mínimo",
+      "max": "Máximo",
+      "percentage": "Percentual"
+    },
+    "overview": {
+      "manageIndicators": "Gerenciar Indicadores",
+      "activeCards": "Cards ativos",
+      "completedCards": "Cards concluídos",
+      "avgProgress": "Progresso médio",
+      "tasksPending": "Tarefas pendentes",
+      "tasksOverdue": "Tarefas atrasadas",
+      "tasksDueToday": "Vencendo hoje",
+      "tasksDueThisWeek": "Vencendo esta semana"
+    },
+    "calendar": {
+      "weekdays": {
+        "sun": "Dom",
+        "mon": "Seg",
+        "tue": "Ter",
+        "wed": "Qua",
+        "thu": "Qui",
+        "fri": "Sex",
+        "sat": "Sáb"
+      },
+      "today": "Hoje",
+      "mode": {
+        "month": "Mês",
+        "week": "Semana",
+        "agenda": "Agenda"
+      },
+      "noFieldConfigured": "Nenhum campo de data configurado para o calendário deste quadro ainda. Configure um em Campos Personalizados.",
+      "agendaEmpty": "Nenhum evento próximo"
     }
   },
   "Broadcasts": {

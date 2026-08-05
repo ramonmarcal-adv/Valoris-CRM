@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
 import { useCan } from "@/hooks/use-can";
 import { moveCardToStage, reorderCardWithinStage } from "@/lib/operations/move-card";
 import { resolveInitialStageId } from "@/lib/operations/board-stages";
@@ -10,9 +11,10 @@ import { BoardKanban } from "@/components/operations/board-kanban";
 import { BoardListView } from "@/components/operations/board-list-view";
 import { BoardStageSettings } from "@/components/operations/board-stage-settings";
 import { BoardFieldDefsSettings } from "@/components/operations/board-field-defs-settings";
+import { BoardViewTabs } from "@/components/operations/board-view-tabs";
+import { TaskTemplateEditor } from "@/components/operations/task-template-editor";
 import { CardForm } from "@/components/operations/card-form";
 import { GatedButton } from "@/components/ui/gated-button";
-import { cn } from "@/lib/utils";
 import type {
   OperationBoard,
   OperationBoardStage,
@@ -20,7 +22,7 @@ import type {
   OperationCardFieldDef,
   Profile,
 } from "@/types";
-import { ArrowLeft, KanbanSquare, List, ListFilter, Plus, Settings, SlidersHorizontal } from "lucide-react";
+import { ArrowLeft, ListFilter, LayoutTemplate, Plus, Settings, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
@@ -33,6 +35,7 @@ export default function OperationBoardPage() {
   const params = useParams<{ boardId: string }>();
   const router = useRouter();
   const supabase = createClient();
+  const { accountId } = useAuth();
   const canManage = useCan("send-messages");
   // operation_card_field_defs (and, from Release B onward, task
   // templates / board indicators) are admin+ in the RLS — gating
@@ -49,6 +52,7 @@ export default function OperationBoardPage() {
 
   const [stageSettingsOpen, setStageSettingsOpen] = useState(false);
   const [fieldDefsOpen, setFieldDefsOpen] = useState(false);
+  const [templateEditorOpen, setTemplateEditorOpen] = useState(false);
   const [cardFormOpen, setCardFormOpen] = useState(false);
   const [cardFormDefaultStageId, setCardFormDefaultStageId] = useState<string>("");
 
@@ -174,6 +178,16 @@ export default function OperationBoardPage() {
             {t("manageFields")}
           </GatedButton>
           <GatedButton
+            variant="outline"
+            canAct={canManageStructure}
+            gateReason="createBoards"
+            onClick={() => setTemplateEditorOpen(true)}
+            className="border-border bg-card text-foreground hover:bg-muted"
+          >
+            <LayoutTemplate className="mr-1 h-4 w-4" />
+            {t("manageTemplates")}
+          </GatedButton>
+          <GatedButton
             canAct={canManage}
             gateReason="createBoards"
             disabled={stages.length === 0}
@@ -183,30 +197,7 @@ export default function OperationBoardPage() {
             <Plus className="mr-1 h-4 w-4" />
             {t("addCard", { label: board.card_label_singular })}
           </GatedButton>
-          <div className="flex shrink-0 items-center gap-1 rounded-lg border border-border bg-card p-0.5">
-            <button
-              type="button"
-              onClick={() => handleViewModeChange("kanban")}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
-                viewMode === "kanban" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <KanbanSquare className="h-3.5 w-3.5" />
-              {t("viewKanban")}
-            </button>
-            <button
-              type="button"
-              onClick={() => handleViewModeChange("list")}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
-                viewMode === "list" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <List className="h-3.5 w-3.5" />
-              {t("viewList")}
-            </button>
-          </div>
+          <BoardViewTabs boardId={board.id} active={viewMode} onSelectLocal={handleViewModeChange} />
         </div>
       </div>
 
@@ -264,6 +255,14 @@ export default function OperationBoardPage() {
         defaultStageId={cardFormDefaultStageId}
         onSaved={(cardId) => router.push(`/operations/cards/${cardId}`)}
       />
+      {accountId && (
+        <TaskTemplateEditor
+          open={templateEditorOpen}
+          onOpenChange={setTemplateEditorOpen}
+          accountId={accountId}
+          boardId={board.id}
+        />
+      )}
     </div>
   );
 }

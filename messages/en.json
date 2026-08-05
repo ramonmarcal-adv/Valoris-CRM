@@ -1199,7 +1199,10 @@
       "noStagesYet": "This board has no stages yet",
       "toastFailedMoveCard": "Failed to move card",
       "viewKanban": "Kanban",
-      "viewList": "List"
+      "viewList": "List",
+      "viewCalendar": "Calendar",
+      "viewOverview": "Overview",
+      "manageTemplates": "Templates"
     },
     "listView": {
       "title": "Title",
@@ -1222,6 +1225,8 @@
       "tags": "Tags",
       "customFields": "Custom fields",
       "missingRequiredFields": "{count, plural, =1 {1 required field is} other {# required fields are}} missing for this stage",
+      "tasks": "Tasks",
+      "checklists": "Checklists",
       "linkedContacts": "Linked contacts",
       "linkedConversations": "Linked conversations",
       "relatedCards": "Related cards",
@@ -1295,7 +1300,144 @@
         "selectConversation": "Select a conversation",
         "add": "Add",
         "toastFailed": "Failed to update conversations"
+      },
+      "tasks": {
+        "toastFailedSave": "Failed to save task",
+        "newTaskPlaceholder": "New task",
+        "applyTemplate": "Apply Template"
+      },
+      "checklists": {
+        "defaultTitle": "Checklist",
+        "toastFailed": "Failed to update checklist",
+        "noChecklists": "No checklists yet",
+        "newItemPlaceholder": "New item",
+        "addChecklist": "Add checklist"
       }
+    },
+    "taskDetail": {
+      "title": "Task",
+      "status": "Status",
+      "statusValue": {
+        "todo": "To do",
+        "in_progress": "In progress",
+        "done": "Done",
+        "cancelled": "Cancelled"
+      },
+      "priority": "Priority",
+      "assignee": "Assignee",
+      "unassigned": "Unassigned",
+      "startDate": "Start date",
+      "dueAt": "Due at",
+      "section": "Section",
+      "sectionPlaceholder": "e.g., Documentation",
+      "description": "Description",
+      "subtasks": "Subtasks",
+      "remove": "Remove",
+      "newSubtaskPlaceholder": "New subtask",
+      "autoComplete": "Auto-complete when all subtasks are done",
+      "checklist": "Checklist",
+      "attachments": "Attachments",
+      "comments": "Comments",
+      "toastFailedSave": "Failed to save task"
+    },
+    "applyTemplate": {
+      "title": "Apply Template",
+      "noTemplates": "No templates available for this board",
+      "selectTemplate": "Template",
+      "selectTemplatePlaceholder": "Select a template",
+      "preventDuplicate": "Prevent applying this template twice on this card",
+      "cancel": "Cancel",
+      "applying": "Applying...",
+      "apply": "Apply",
+      "toastFailedDuplicate": "This template was already applied to this card",
+      "toastFailed": "Failed to apply template",
+      "toastApplied": "Template applied"
+    },
+    "taskTemplateEditor": {
+      "title": "Task Templates",
+      "noTemplates": "No templates yet",
+      "scopeBoard": "This board",
+      "scopeGlobal": "Global (all boards)",
+      "newTemplate": "New Template",
+      "editTemplate": "Edit Template",
+      "name": "Name",
+      "description": "Description",
+      "priority": "Priority",
+      "dueOffsetDays": "Due offset (days)",
+      "dueOffsetDaysPlaceholder": "e.g., 3",
+      "assigneeMode": "Default assignee",
+      "assigneeModeValue": {
+        "none": "None",
+        "specific_user": "Specific user",
+        "card_assignee": "Same as card's assignee"
+      },
+      "specificUser": "User",
+      "specificUserPlaceholder": "Select a user",
+      "section": "Section",
+      "scope": "Scope",
+      "subtasks": "Subtasks",
+      "newSubtaskPlaceholder": "New subtask",
+      "checklistItems": "Checklist items",
+      "newChecklistItemPlaceholder": "New item",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving...",
+      "toastFailedSave": "Failed to save template",
+      "toastSaved": "Template saved",
+      "toastFailedDelete": "Failed to delete template",
+      "toastDeleted": "Template deleted"
+    },
+    "indicatorSettings": {
+      "title": "Board Indicators",
+      "noIndicators": "No custom indicators yet",
+      "name": "Name",
+      "aggType": "Aggregation",
+      "field": "Field",
+      "fieldPlaceholder": "Select a field",
+      "filterStage": "Stage",
+      "optional": "optional",
+      "allStages": "All stages",
+      "addIndicator": "Add Indicator",
+      "done": "Done",
+      "toastFailedAdd": "Failed to add indicator",
+      "toastFailedRemove": "Failed to remove indicator"
+    },
+    "aggType": {
+      "count": "Count",
+      "sum": "Sum",
+      "avg": "Average",
+      "min": "Minimum",
+      "max": "Maximum",
+      "percentage": "Percentage"
+    },
+    "overview": {
+      "manageIndicators": "Manage Indicators",
+      "activeCards": "Active cards",
+      "completedCards": "Completed cards",
+      "avgProgress": "Average progress",
+      "tasksPending": "Pending tasks",
+      "tasksOverdue": "Overdue tasks",
+      "tasksDueToday": "Due today",
+      "tasksDueThisWeek": "Due this week"
+    },
+    "calendar": {
+      "weekdays": {
+        "sun": "Sun",
+        "mon": "Mon",
+        "tue": "Tue",
+        "wed": "Wed",
+        "thu": "Thu",
+        "fri": "Fri",
+        "sat": "Sat"
+      },
+      "today": "Today",
+      "mode": {
+        "month": "Month",
+        "week": "Week",
+        "agenda": "Agenda"
+      },
+      "noFieldConfigured": "No date field configured for this board's calendar yet. Configure one in Custom Fields.",
+      "agendaEmpty": "No upcoming events"
     }
   },
   "Broadcasts": {

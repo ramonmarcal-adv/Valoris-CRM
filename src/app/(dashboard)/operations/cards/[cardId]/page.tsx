@@ -15,6 +15,8 @@ import { CardRelationsPanel } from "@/components/operations/card-relations-panel
 import { CardAttachmentsPanel } from "@/components/operations/card-attachments-panel";
 import { CardContactsPanel } from "@/components/operations/card-contacts-panel";
 import { CardConversationsPanel } from "@/components/operations/card-conversations-panel";
+import { CardTasksPanel } from "@/components/operations/card-tasks-panel";
+import { ChecklistPanel } from "@/components/operations/checklist-panel";
 import { PriorityBadge } from "@/components/operations/priority-badge";
 import type {
   Contact,
@@ -298,6 +300,14 @@ export default function OperationCardPage() {
           </div>
         </Section>
       )}
+
+      <Section title={t("tasks")}>
+        {accountId && <CardTasksPanel cardId={card.id} accountId={accountId} boardId={board.id} />}
+      </Section>
+
+      <Section title={t("checklists")}>
+        <ChecklistPanel cardId={card.id} />
+      </Section>
 
       <Section title={t("linkedContacts")}>
         <CardContactsPanel cardId={card.id} />
