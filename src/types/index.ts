@@ -969,6 +969,8 @@ export interface OperationCard {
   created_by?: string | null;
   /** Trigger-maintained from first-level tasks (parent_task_id IS NULL); null when the card has no first-level tasks yet. */
   progress_percent?: number | null;
+  /** Trigger-maintained — set to NOW() whenever stage_id changes. Powers the 'card_stuck_in_stage_days' automation trigger. */
+  stage_entered_at: string;
   created_at: string;
   updated_at: string;
 }
@@ -1097,7 +1099,10 @@ export type OperationCardActivityEventType =
   | 'task_reopened'
   | 'task_assignee_changed'
   | 'task_deleted'
-  | 'checklist_item_toggled';
+  | 'checklist_item_toggled'
+  | 'tag_added'
+  | 'tag_removed'
+  | 'checklist_added';
 
 export interface OperationCardActivity {
   id: string;
@@ -1106,6 +1111,8 @@ export interface OperationCardActivity {
   actor_user_id?: string | null;
   event_type: OperationCardActivityEventType;
   payload: Record<string, unknown>;
+  /** How many automation-triggered hops produced this row (0 = a direct user action). Loop-protection guard. */
+  chain_depth: number;
   created_at: string;
 }
 
@@ -1235,4 +1242,186 @@ export interface OperationBoardOverviewStats {
   tasks_overdue: number;
   tasks_due_today: number;
   tasks_due_this_week: number;
+}
+
+// ============================================================
+// Release C — Automations (PRD 16). Parallel to the Deal/Conversation
+// automation engine in src/lib/automations/ — see that module's
+// AutomationTriggerType/AutomationStepType for the unrelated Deal/
+// Conversation domain's own equivalents; do not confuse the two.
+// ============================================================
+
+export type OperationAutomationTriggerType =
+  | 'card_created'
+  | 'card_moved'
+  | 'entered_stage'
+  | 'left_stage'
+  | 'field_changed'
+  | 'priority_changed'
+  | 'assignee_changed'
+  | 'tag_added'
+  | 'tag_removed'
+  | 'card_archived'
+  | 'task_created'
+  | 'task_completed'
+  | 'all_tasks_completed'
+  | 'subtask_completed'
+  | 'checklist_added'
+  | 'checklist_completed'
+  | 'all_items_completed'
+  | 'date_reached'
+  | 'days_before_date'
+  | 'days_after_date'
+  | 'task_due_today'
+  | 'task_overdue'
+  | 'task_overdue_days'
+  | 'card_stuck_in_stage_days';
+
+export type OperationAutomationStepType =
+  | 'move_card'
+  | 'change_field'
+  | 'change_priority'
+  | 'assign_card'
+  | 'add_card_tag'
+  | 'remove_card_tag'
+  | 'create_task'
+  | 'apply_task_template'
+  | 'add_checklist'
+  | 'apply_checklist_template'
+  | 'add_comment'
+  | 'create_card'
+  | 'relate_cards'
+  | 'archive_card'
+  | 'wait';
+
+export type OperationAutomationConditionSubject =
+  | 'card_field'
+  | 'card_priority'
+  | 'task_priority'
+  | 'card_stage'
+  | 'task_status'
+  | 'card_assignee'
+  | 'task_assignee'
+  | 'card_tag'
+  | 'task_due_date';
+
+export type OperationAutomationConditionOperator =
+  | 'equal'
+  | 'not_equal'
+  | 'contains'
+  | 'not_contains'
+  | 'empty'
+  | 'not_empty'
+  | 'greater_than'
+  | 'less_than'
+  | 'date_before'
+  | 'date_after'
+  | 'tag_exists'
+  | 'tag_not_exists';
+
+export interface OperationAutomationCondition {
+  subject: OperationAutomationConditionSubject;
+  operator: OperationAutomationConditionOperator;
+  /** Required only for subject='card_field' — which field_def_id this condition reads. */
+  field_def_id?: string;
+  /** Comparison value — meaning depends on subject/operator (a stage id, a tag id, a raw string/number, etc). */
+  value?: string | number | null;
+}
+
+export type OperationAutomationCreatedVia = 'manual' | 'stage_shortcut';
+
+export interface OperationAutomation {
+  id: string;
+  account_id: string;
+  board_id: string;
+  name: string;
+  description?: string | null;
+  trigger_type: OperationAutomationTriggerType;
+  trigger_config: Record<string, unknown>;
+  /** AND-only (PRD 16.4/39 — OR and condition groups are explicitly out of scope for this release). */
+  conditions: OperationAutomationCondition[];
+  is_active: boolean;
+  execution_count: number;
+  last_executed_at?: string | null;
+  created_via: OperationAutomationCreatedVia;
+  shortcut_stage_id?: string | null;
+  shortcut_action_type?: string | null;
+  created_by?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OperationAutomationStep {
+  id: string;
+  automation_id: string;
+  step_type: OperationAutomationStepType;
+  step_config: Record<string, unknown>;
+  position: number;
+  created_at: string;
+}
+
+export type OperationAutomationLogStatus = 'success' | 'partial' | 'failed';
+
+export interface OperationAutomationLogStepResult {
+  step_id: string;
+  step_type: OperationAutomationStepType;
+  status: 'success' | 'failed';
+  detail: string;
+}
+
+export interface OperationAutomationLog {
+  id: string;
+  automation_id: string;
+  account_id: string;
+  board_id: string;
+  card_id?: string | null;
+  trigger_event: string;
+  chain_depth: number;
+  steps_executed: OperationAutomationLogStepResult[];
+  status: OperationAutomationLogStatus;
+  error_message?: string | null;
+  created_at: string;
+}
+
+export type OperationAutomationPendingStatus = 'pending' | 'running' | 'done' | 'cancelled' | 'failed';
+
+export interface OperationAutomationPendingExecution {
+  id: string;
+  automation_id: string;
+  account_id: string;
+  board_id: string;
+  card_id?: string | null;
+  log_id: string;
+  next_step_position: number;
+  context: Record<string, unknown>;
+  status: OperationAutomationPendingStatus;
+  run_at: string;
+  created_at: string;
+}
+
+// ============================================================
+// Checklist templates (PRD 14) — a separate entity from Task
+// templates, per explicit product decision (not reusing
+// operation_task_template_checklist_items).
+// ============================================================
+
+export interface OperationChecklistTemplate {
+  id: string;
+  account_id: string;
+  /** Null = global to the account; set = specific to that board. */
+  board_id: string | null;
+  name: string;
+  description?: string | null;
+  position: number;
+  archived_at?: string | null;
+  created_by?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OperationChecklistTemplateItem {
+  id: string;
+  template_id: string;
+  item_text: string;
+  position: number;
 }

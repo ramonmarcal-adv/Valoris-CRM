@@ -13,6 +13,7 @@ import { BoardStageSettings } from "@/components/operations/board-stage-settings
 import { BoardFieldDefsSettings } from "@/components/operations/board-field-defs-settings";
 import { BoardViewTabs } from "@/components/operations/board-view-tabs";
 import { TaskTemplateEditor } from "@/components/operations/task-template-editor";
+import { ChecklistTemplateEditor } from "@/components/operations/checklist-template-editor";
 import { CardForm } from "@/components/operations/card-form";
 import { GatedButton } from "@/components/ui/gated-button";
 import type {
@@ -22,7 +23,7 @@ import type {
   OperationCardFieldDef,
   Profile,
 } from "@/types";
-import { ArrowLeft, ListFilter, LayoutTemplate, Plus, Settings, SlidersHorizontal } from "lucide-react";
+import { ArrowLeft, ListChecks, ListFilter, LayoutTemplate, Plus, Settings, SlidersHorizontal, Zap } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
@@ -53,6 +54,7 @@ export default function OperationBoardPage() {
   const [stageSettingsOpen, setStageSettingsOpen] = useState(false);
   const [fieldDefsOpen, setFieldDefsOpen] = useState(false);
   const [templateEditorOpen, setTemplateEditorOpen] = useState(false);
+  const [checklistTemplateEditorOpen, setChecklistTemplateEditorOpen] = useState(false);
   const [cardFormOpen, setCardFormOpen] = useState(false);
   const [cardFormDefaultStageId, setCardFormDefaultStageId] = useState<string>("");
 
@@ -188,6 +190,26 @@ export default function OperationBoardPage() {
             {t("manageTemplates")}
           </GatedButton>
           <GatedButton
+            variant="outline"
+            canAct={canManageStructure}
+            gateReason="createBoards"
+            onClick={() => setChecklistTemplateEditorOpen(true)}
+            className="border-border bg-card text-foreground hover:bg-muted"
+          >
+            <ListChecks className="mr-1 h-4 w-4" />
+            {t("manageChecklistTemplates")}
+          </GatedButton>
+          <GatedButton
+            variant="outline"
+            canAct={canManageStructure}
+            gateReason="createBoards"
+            onClick={() => router.push(`/operations/boards/${board.id}/automations`)}
+            className="border-border bg-card text-foreground hover:bg-muted"
+          >
+            <Zap className="mr-1 h-4 w-4" />
+            {t("manageAutomations")}
+          </GatedButton>
+          <GatedButton
             canAct={canManage}
             gateReason="createBoards"
             disabled={stages.length === 0}
@@ -259,6 +281,14 @@ export default function OperationBoardPage() {
         <TaskTemplateEditor
           open={templateEditorOpen}
           onOpenChange={setTemplateEditorOpen}
+          accountId={accountId}
+          boardId={board.id}
+        />
+      )}
+      {accountId && (
+        <ChecklistTemplateEditor
+          open={checklistTemplateEditorOpen}
+          onOpenChange={setChecklistTemplateEditorOpen}
           accountId={accountId}
           boardId={board.id}
         />
