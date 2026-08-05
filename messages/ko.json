@@ -268,6 +268,10 @@
   "ModeToggle": {
     "switchMode": "{mode} 모드로 전환"
   },
+  "SoundToggle": {
+    "mute": "알림음 끄기",
+    "unmute": "알림음 켜기"
+  },
   "Dashboard": {
     "page": {
       "title": "대시보드",

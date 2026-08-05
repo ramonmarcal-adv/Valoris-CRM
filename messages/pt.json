@@ -268,6 +268,10 @@
   "ModeToggle": {
     "switchMode": "Mudar para o modo {mode}"
   },
+  "SoundToggle": {
+    "mute": "Silenciar sons de notificação",
+    "unmute": "Ativar sons de notificação"
+  },
   "Dashboard": {
     "page": {
       "title": "Dashboard",
