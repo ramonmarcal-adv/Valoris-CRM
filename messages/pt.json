@@ -112,7 +112,8 @@
         "addOrImportContacts": "adicionar ou importar contatos",
         "deleteContacts": "excluir contatos",
         "createFlows": "criar fluxos",
-        "createBroadcasts": "criar transmissões"
+        "createBroadcasts": "criar transmissões",
+        "createBoards": "criar pastas ou quadros"
       }
     }
   },
@@ -224,6 +225,7 @@
     "notifications": "Notificações",
     "contacts": "Contatos",
     "pipelines": "Pipelines",
+    "operations": "Operações",
     "broadcasts": "Transmissões",
     "automations": "Automações",
     "flows": "Fluxos",
@@ -254,6 +256,7 @@
     "notifications": "Notificações",
     "contacts": "Contatos",
     "pipelines": "Pipelines",
+    "operations": "Operações",
     "broadcasts": "Transmissões",
     "automations": "Automações",
     "settings": "Configurações",
@@ -1066,6 +1069,215 @@
       "lostThisMonth": "Perdidos este mês",
       "lostThisMonthTooltip": "Negócios marcados como Perdido desde o primeiro dia do mês atual.",
       "howCalculated": "Como {label} é calculado"
+    }
+  },
+  "Operations": {
+    "gate": {
+      "title": "Operações ainda não está habilitado para sua conta",
+      "description": "Este é um módulo novo, ainda em lançamento gradual. Peça ao proprietário da conta para habilitá-lo se quiser acesso antecipado."
+    },
+    "priority": {
+      "low": "Baixa",
+      "normal": "Normal",
+      "high": "Alta",
+      "urgent": "Urgente"
+    },
+    "fieldType": {
+      "short_text": "Texto curto",
+      "long_text": "Texto longo",
+      "number": "Número",
+      "currency": "Moeda",
+      "date": "Data",
+      "datetime": "Data e hora",
+      "checkbox": "Caixa de seleção",
+      "single_select": "Seleção única",
+      "multi_select": "Seleção múltipla",
+      "phone": "Telefone",
+      "email": "E-mail",
+      "url": "URL",
+      "user": "Usuário",
+      "contact": "Contato",
+      "related_card": "Card relacionado"
+    },
+    "board": {
+      "dropCardHere": "Solte um card aqui",
+      "addCard": "Adicionar card"
+    },
+    "stageSettings": {
+      "manageStages": "Gerenciar Fases",
+      "stages": "Fases",
+      "newStageNamePlaceholder": "Nome da nova fase",
+      "add": "Adicionar",
+      "saving": "Salvando...",
+      "saveChanges": "Salvar Alterações",
+      "cancel": "Cancelar",
+      "moving": "Movendo...",
+      "moveAndDelete": "Mover e excluir",
+      "moveTo": "Mover cards para",
+      "dragToReorder": "Arraste para reordenar",
+      "changeColor": "Mudar cor",
+      "pickColorAriaLabel": "Escolher cor {color}",
+      "setInitial": "Padrão para novos cards",
+      "deleteBlockedTitle": "{count, plural, =1 {1 card está} other {# cards estão}} nesta fase",
+      "deleteBlockedDesc": "Escolha uma fase para mover esses cards antes de excluir esta.",
+      "toastFailedSave": "Falha ao salvar fases",
+      "toastSaved": "Fases salvas",
+      "toastFailedAddStage": "Falha ao adicionar fase",
+      "toastCannotDeleteLastStage": "Um quadro precisa de pelo menos uma fase",
+      "toastFailedDeleteStage": "Falha ao excluir fase",
+      "toastStageDeleted": "Fase excluída",
+      "toastFailedSetInitial": "Falha ao definir fase padrão"
+    },
+    "fieldDefsSettings": {
+      "manageFields": "Gerenciar Campos Personalizados",
+      "noFieldsYet": "Nenhum campo personalizado ainda",
+      "fieldName": "Nome do campo",
+      "fieldNamePlaceholder": "ex.: Forma de pagamento",
+      "fieldType": "Tipo do campo",
+      "choices": "Opções",
+      "choicesPlaceholder": "Separadas por vírgula, ex.: À vista, Financiamento",
+      "visibleOnStage": "Visível na fase",
+      "allStages": "Todas as fases",
+      "required": "Obrigatório",
+      "addField": "Adicionar campo",
+      "done": "Concluído",
+      "toastFailedAdd": "Falha ao adicionar campo",
+      "toastAdded": "Campo adicionado",
+      "toastFailedRemove": "Falha ao remover campo",
+      "toastRemoved": "Campo removido",
+      "toastFailedReorder": "Falha ao reordenar campos"
+    },
+    "cardForm": {
+      "newTitle": "Novo Card",
+      "editTitle": "Editar Card",
+      "title": "Título",
+      "titlePlaceholder": "Título do card",
+      "description": "Descrição",
+      "stage": "Fase",
+      "priority": "Prioridade",
+      "assignee": "Responsável",
+      "unassigned": "Sem responsável",
+      "cancel": "Cancelar",
+      "saving": "Salvando...",
+      "saveChanges": "Salvar Alterações",
+      "createCard": "Criar Card",
+      "toastRequired": "Título e fase são obrigatórios",
+      "toastFailedSave": "Falha ao salvar card",
+      "toastUpdated": "Card atualizado",
+      "toastNotLinked": "Seu perfil não está vinculado a uma conta.",
+      "toastFailedCreate": "Falha ao criar card",
+      "toastCreated": "Card criado"
+    },
+    "rootPage": {
+      "title": "Operações",
+      "newFolder": "Nova Pasta",
+      "newBoard": "Novo Quadro",
+      "emptyTitle": "Nenhuma pasta ou quadro ainda",
+      "emptyDesc": "Crie um quadro para começar a organizar seu trabalho.",
+      "noFolderSection": "Sem pasta",
+      "folderName": "Nome da pasta",
+      "parentFolder": "Pasta-mãe",
+      "noParentFolder": "Sem pasta-mãe (nível superior)",
+      "boardName": "Nome do quadro",
+      "folder": "Pasta",
+      "noFolder": "Sem pasta",
+      "defaultStageName": "A fazer",
+      "cancel": "Cancelar",
+      "creating": "Criando...",
+      "create": "Criar",
+      "toastFailedCreateFolder": "Falha ao criar pasta",
+      "toastFolderCreated": "Pasta criada",
+      "toastFailedCreateBoard": "Falha ao criar quadro",
+      "toastBoardCreated": "Quadro criado"
+    },
+    "boardPage": {
+      "backToOperations": "Voltar para Operações",
+      "boardNotFound": "Quadro não encontrado",
+      "manageStages": "Fases",
+      "manageFields": "Campos Personalizados",
+      "addCard": "Adicionar {label}",
+      "noStagesYet": "Este quadro ainda não tem fases",
+      "toastFailedMoveCard": "Falha ao mover card"
+    },
+    "cardPage": {
+      "backToOperations": "Voltar ao quadro",
+      "cardNotFound": "Card não encontrado",
+      "stage": "Fase",
+      "priority": "Prioridade",
+      "assignee": "Responsável",
+      "unassigned": "Sem responsável",
+      "archive": "Arquivar",
+      "unarchive": "Desarquivar",
+      "description": "Descrição",
+      "tags": "Etiquetas",
+      "customFields": "Campos personalizados",
+      "missingRequiredFields": "{count, plural, =1 {1 campo obrigatório está} other {# campos obrigatórios estão}} faltando nesta fase",
+      "linkedContacts": "Contatos vinculados",
+      "relatedCards": "Cards relacionados",
+      "attachments": "Anexos",
+      "comments": "Comentários",
+      "activity": "Atividade",
+      "toastFailedSave": "Falha ao salvar",
+      "toastFailedSaveField": "Falha ao salvar campo"
+    },
+    "cardDetail": {
+      "selectPlaceholder": "Selecionar...",
+      "none": "Nenhum",
+      "tags": {
+        "addTag": "Adicionar etiqueta",
+        "newTagPlaceholder": "Nome da nova etiqueta",
+        "toastFailed": "Falha ao atualizar etiquetas",
+        "toastFailedCreate": "Falha ao criar etiqueta"
+      },
+      "comments": {
+        "placeholder": "Escreva um comentário...",
+        "internalOnly": "Somente interno",
+        "internalBadge": "Interno",
+        "send": "Enviar",
+        "noComments": "Nenhum comentário ainda",
+        "unknownAuthor": "Desconhecido",
+        "toastFailed": "Falha ao publicar comentário"
+      },
+      "activity": {
+        "noActivity": "Nenhuma atividade ainda",
+        "events": {
+          "card_created": "Card criado",
+          "stage_changed": "Fase alterada",
+          "assignee_changed": "Responsável alterado",
+          "priority_changed": "Prioridade alterada",
+          "field_changed": "Um campo personalizado foi atualizado",
+          "comment_added": "Comentário adicionado",
+          "relation_added": "Relação adicionada",
+          "relation_removed": "Relação removida",
+          "attachment_added": "Anexo adicionado",
+          "attachment_removed": "Anexo removido",
+          "archived": "Card arquivado",
+          "unarchived": "Card desarquivado"
+        }
+      },
+      "relations": {
+        "noRelations": "Nenhum card relacionado ainda",
+        "unknownCard": "Card desconhecido",
+        "relationTypePlaceholder": "Relação",
+        "selectCard": "Selecionar um card",
+        "add": "Adicionar",
+        "toastFailed": "Falha ao atualizar relações"
+      },
+      "attachments": {
+        "noAttachments": "Nenhum anexo ainda",
+        "addAttachment": "Adicionar anexo",
+        "uploading": "Enviando...",
+        "toastFailed": "Falha ao remover anexo",
+        "toastFailedUpload": "Falha ao enviar anexo",
+        "toastTooLarge": "Arquivo muito grande (máx. 25 MB)"
+      },
+      "contacts": {
+        "noContacts": "Nenhum contato vinculado ainda",
+        "unknownContact": "Contato desconhecido",
+        "selectContact": "Selecionar um contato",
+        "add": "Adicionar",
+        "toastFailed": "Falha ao atualizar contatos"
+      }
     }
   },
   "Broadcasts": {

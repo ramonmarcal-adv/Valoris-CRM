@@ -112,7 +112,8 @@
         "addOrImportContacts": "연락처 추가 또는 가져오기",
         "deleteContacts": "연락처 삭제",
         "createFlows": "플로우 생성",
-        "createBroadcasts": "브로드캐스트 생성"
+        "createBroadcasts": "브로드캐스트 생성",
+        "createBoards": "폴더 또는 보드 생성"
       }
     }
   },
@@ -224,6 +225,7 @@
     "notifications": "알림",
     "contacts": "연락처",
     "pipelines": "파이프라인",
+    "operations": "운영",
     "broadcasts": "브로드캐스트",
     "automations": "자동화",
     "flows": "플로우",
@@ -254,6 +256,7 @@
     "notifications": "알림",
     "contacts": "연락처",
     "pipelines": "파이프라인",
+    "operations": "운영",
     "broadcasts": "브로드캐스트",
     "automations": "자동화",
     "settings": "설정",
@@ -1066,6 +1069,215 @@
       "lostThisMonth": "이번 달 실패",
       "lostThisMonthTooltip": "이번 달 1일 이후 실패로 표시된 딜입니다.",
       "howCalculated": "{label} 계산 방법"
+    }
+  },
+  "Operations": {
+    "gate": {
+      "title": "운영이 아직 이 계정에서 활성화되지 않았습니다",
+      "description": "이 모듈은 새로 도입 중인 기능입니다. 조기 이용을 원하시면 계정 소유자에게 활성화를 요청하세요."
+    },
+    "priority": {
+      "low": "낮음",
+      "normal": "보통",
+      "high": "높음",
+      "urgent": "긴급"
+    },
+    "fieldType": {
+      "short_text": "짧은 텍스트",
+      "long_text": "긴 텍스트",
+      "number": "숫자",
+      "currency": "통화",
+      "date": "날짜",
+      "datetime": "날짜 및 시간",
+      "checkbox": "체크박스",
+      "single_select": "단일 선택",
+      "multi_select": "다중 선택",
+      "phone": "전화번호",
+      "email": "이메일",
+      "url": "URL",
+      "user": "사용자",
+      "contact": "연락처",
+      "related_card": "관련 카드"
+    },
+    "board": {
+      "dropCardHere": "카드를 여기에 놓으세요",
+      "addCard": "카드 추가"
+    },
+    "stageSettings": {
+      "manageStages": "단계 관리",
+      "stages": "단계",
+      "newStageNamePlaceholder": "새 단계 이름",
+      "add": "추가",
+      "saving": "저장 중...",
+      "saveChanges": "변경 사항 저장",
+      "cancel": "취소",
+      "moving": "이동 중...",
+      "moveAndDelete": "이동 후 삭제",
+      "moveTo": "카드를 이동할 단계",
+      "dragToReorder": "드래그하여 순서 변경",
+      "changeColor": "색상 변경",
+      "pickColorAriaLabel": "색상 {color} 선택",
+      "setInitial": "새 카드의 기본 단계",
+      "deleteBlockedTitle": "이 단계에 카드 {count}개가 있습니다",
+      "deleteBlockedDesc": "이 단계를 삭제하기 전에 카드를 이동할 단계를 선택하세요.",
+      "toastFailedSave": "단계 저장에 실패했습니다",
+      "toastSaved": "단계가 저장되었습니다",
+      "toastFailedAddStage": "단계 추가에 실패했습니다",
+      "toastCannotDeleteLastStage": "보드에는 최소 하나의 단계가 필요합니다",
+      "toastFailedDeleteStage": "단계 삭제에 실패했습니다",
+      "toastStageDeleted": "단계가 삭제되었습니다",
+      "toastFailedSetInitial": "기본 단계 설정에 실패했습니다"
+    },
+    "fieldDefsSettings": {
+      "manageFields": "사용자 지정 필드 관리",
+      "noFieldsYet": "아직 사용자 지정 필드가 없습니다",
+      "fieldName": "필드 이름",
+      "fieldNamePlaceholder": "예: 결제 방법",
+      "fieldType": "필드 유형",
+      "choices": "선택지",
+      "choicesPlaceholder": "쉼표로 구분, 예: 현금, 융자",
+      "visibleOnStage": "표시할 단계",
+      "allStages": "모든 단계",
+      "required": "필수",
+      "addField": "필드 추가",
+      "done": "완료",
+      "toastFailedAdd": "필드 추가에 실패했습니다",
+      "toastAdded": "필드가 추가되었습니다",
+      "toastFailedRemove": "필드 제거에 실패했습니다",
+      "toastRemoved": "필드가 제거되었습니다",
+      "toastFailedReorder": "필드 순서 변경에 실패했습니다"
+    },
+    "cardForm": {
+      "newTitle": "새 카드",
+      "editTitle": "카드 편집",
+      "title": "제목",
+      "titlePlaceholder": "카드 제목",
+      "description": "설명",
+      "stage": "단계",
+      "priority": "우선순위",
+      "assignee": "담당자",
+      "unassigned": "담당자 없음",
+      "cancel": "취소",
+      "saving": "저장 중...",
+      "saveChanges": "변경 사항 저장",
+      "createCard": "카드 생성",
+      "toastRequired": "제목과 단계는 필수입니다",
+      "toastFailedSave": "카드 저장에 실패했습니다",
+      "toastUpdated": "카드가 업데이트되었습니다",
+      "toastNotLinked": "프로필이 계정에 연결되어 있지 않습니다.",
+      "toastFailedCreate": "카드 생성에 실패했습니다",
+      "toastCreated": "카드가 생성되었습니다"
+    },
+    "rootPage": {
+      "title": "운영",
+      "newFolder": "새 폴더",
+      "newBoard": "새 보드",
+      "emptyTitle": "아직 폴더나 보드가 없습니다",
+      "emptyDesc": "보드를 만들어 작업을 정리해 보세요.",
+      "noFolderSection": "폴더 없음",
+      "folderName": "폴더 이름",
+      "parentFolder": "상위 폴더",
+      "noParentFolder": "상위 폴더 없음 (최상위)",
+      "boardName": "보드 이름",
+      "folder": "폴더",
+      "noFolder": "폴더 없음",
+      "defaultStageName": "할 일",
+      "cancel": "취소",
+      "creating": "생성 중...",
+      "create": "생성",
+      "toastFailedCreateFolder": "폴더 생성에 실패했습니다",
+      "toastFolderCreated": "폴더가 생성되었습니다",
+      "toastFailedCreateBoard": "보드 생성에 실패했습니다",
+      "toastBoardCreated": "보드가 생성되었습니다"
+    },
+    "boardPage": {
+      "backToOperations": "운영으로 돌아가기",
+      "boardNotFound": "보드를 찾을 수 없습니다",
+      "manageStages": "단계",
+      "manageFields": "사용자 지정 필드",
+      "addCard": "{label} 추가",
+      "noStagesYet": "이 보드에는 아직 단계가 없습니다",
+      "toastFailedMoveCard": "카드 이동에 실패했습니다"
+    },
+    "cardPage": {
+      "backToOperations": "보드로 돌아가기",
+      "cardNotFound": "카드를 찾을 수 없습니다",
+      "stage": "단계",
+      "priority": "우선순위",
+      "assignee": "담당자",
+      "unassigned": "담당자 없음",
+      "archive": "보관",
+      "unarchive": "보관 취소",
+      "description": "설명",
+      "tags": "태그",
+      "customFields": "사용자 지정 필드",
+      "missingRequiredFields": "이 단계에 필수 필드 {count}개가 비어 있습니다",
+      "linkedContacts": "연결된 연락처",
+      "relatedCards": "관련 카드",
+      "attachments": "첨부 파일",
+      "comments": "댓글",
+      "activity": "활동",
+      "toastFailedSave": "저장에 실패했습니다",
+      "toastFailedSaveField": "필드 저장에 실패했습니다"
+    },
+    "cardDetail": {
+      "selectPlaceholder": "선택...",
+      "none": "없음",
+      "tags": {
+        "addTag": "태그 추가",
+        "newTagPlaceholder": "새 태그 이름",
+        "toastFailed": "태그 업데이트에 실패했습니다",
+        "toastFailedCreate": "태그 생성에 실패했습니다"
+      },
+      "comments": {
+        "placeholder": "댓글을 입력하세요...",
+        "internalOnly": "내부용",
+        "internalBadge": "내부",
+        "send": "보내기",
+        "noComments": "아직 댓글이 없습니다",
+        "unknownAuthor": "알 수 없음",
+        "toastFailed": "댓글 등록에 실패했습니다"
+      },
+      "activity": {
+        "noActivity": "아직 활동이 없습니다",
+        "events": {
+          "card_created": "카드 생성됨",
+          "stage_changed": "단계 변경됨",
+          "assignee_changed": "담당자 변경됨",
+          "priority_changed": "우선순위 변경됨",
+          "field_changed": "사용자 지정 필드가 업데이트됨",
+          "comment_added": "댓글 추가됨",
+          "relation_added": "관계 추가됨",
+          "relation_removed": "관계 제거됨",
+          "attachment_added": "첨부 파일 추가됨",
+          "attachment_removed": "첨부 파일 제거됨",
+          "archived": "카드 보관됨",
+          "unarchived": "카드 보관 취소됨"
+        }
+      },
+      "relations": {
+        "noRelations": "아직 관련 카드가 없습니다",
+        "unknownCard": "알 수 없는 카드",
+        "relationTypePlaceholder": "관계",
+        "selectCard": "카드 선택",
+        "add": "추가",
+        "toastFailed": "관계 업데이트에 실패했습니다"
+      },
+      "attachments": {
+        "noAttachments": "아직 첨부 파일이 없습니다",
+        "addAttachment": "첨부 파일 추가",
+        "uploading": "업로드 중...",
+        "toastFailed": "첨부 파일 제거에 실패했습니다",
+        "toastFailedUpload": "첨부 파일 업로드에 실패했습니다",
+        "toastTooLarge": "파일이 너무 큽니다 (최대 25MB)"
+      },
+      "contacts": {
+        "noContacts": "아직 연결된 연락처가 없습니다",
+        "unknownContact": "알 수 없는 연락처",
+        "selectContact": "연락처 선택",
+        "add": "추가",
+        "toastFailed": "연락처 업데이트에 실패했습니다"
+      }
     }
   },
   "Broadcasts": {

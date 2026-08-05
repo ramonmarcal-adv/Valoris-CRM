@@ -64,7 +64,8 @@ export type GateReason =
   | "addOrImportContacts"
   | "deleteContacts"
   | "createFlows"
-  | "createBroadcasts";
+  | "createBroadcasts"
+  | "createBoards";
 
 interface GatedButtonProps extends Omit<ComponentProps<typeof Button>, "title"> {
   /** False → button is disabled and the wrapper span shows the

@@ -14,6 +14,7 @@ import {
   Crown,
   GitBranch,
   LayoutDashboard,
+  LayoutGrid,
   LogOut,
   MessageSquare,
   PanelLeftClose,
@@ -84,6 +85,14 @@ interface NavItem {
    * Purely informational — doesn't affect routing or access.
    */
   beta?: boolean;
+  /**
+   * Row only renders when `profile.beta_features` includes this key —
+   * unlike `beta` (cosmetic chip), this actually hides the entry.
+   * Operations is the first real consumer of `beta_features` (added
+   * migration 011, never wired to any gate until now) since Release A
+   * is new/rough enough to want per-account opt-in during rollout.
+   */
+  requiresBetaFlag?: string;
 }
 
 const navItems: NavItem[] = [
@@ -92,6 +101,7 @@ const navItems: NavItem[] = [
   { href: '/notifications', labelKey: 'notifications', icon: Bell },
   { href: '/contacts', labelKey: 'contacts', icon: Users },
   { href: '/pipelines', labelKey: 'pipelines', icon: GitBranch },
+  { href: '/operations', labelKey: 'operations', icon: LayoutGrid, beta: true, requiresBetaFlag: 'operations' },
   { href: '/broadcasts', labelKey: 'broadcasts', icon: Radio },
   { href: '/automations', labelKey: 'automations', icon: Zap },
   { href: '/flows', labelKey: 'flows', icon: Workflow, beta: true },
@@ -346,7 +356,11 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         {/* Main navigation */}
         <nav className="flex-1 overflow-y-auto px-3 py-4">
           <ul className="flex flex-col gap-1">
-            {navItems.map((item) => {
+            {navItems
+              .filter(
+                (item) => !item.requiresBetaFlag || profile?.beta_features?.includes(item.requiresBetaFlag),
+              )
+              .map((item) => {
               const isActive =
                 pathname === item.href ||
                 (item.href !== '/dashboard' && pathname.startsWith(item.href));

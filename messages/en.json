@@ -112,7 +112,8 @@
         "addOrImportContacts": "add or import contacts",
         "deleteContacts": "delete contacts",
         "createFlows": "create flows",
-        "createBroadcasts": "create broadcasts"
+        "createBroadcasts": "create broadcasts",
+        "createBoards": "create folders or boards"
       }
     }
   },
@@ -224,6 +225,7 @@
     "notifications": "Notifications",
     "contacts": "Contacts",
     "pipelines": "Pipelines",
+    "operations": "Operations",
     "broadcasts": "Broadcasts",
     "automations": "Automations",
     "flows": "Flows",
@@ -254,6 +256,7 @@
     "notifications": "Notifications",
     "contacts": "Contacts",
     "pipelines": "Pipelines",
+    "operations": "Operations",
     "broadcasts": "Broadcasts",
     "automations": "Automations",
     "settings": "Settings",
@@ -1066,6 +1069,215 @@
       "lostThisMonth": "Lost This Month",
       "lostThisMonthTooltip": "Deals marked as Lost since the first day of the current month.",
       "howCalculated": "How {label} is calculated"
+    }
+  },
+  "Operations": {
+    "gate": {
+      "title": "Operations isn't enabled for your account yet",
+      "description": "This is a new, still-rolling-out module. Ask your account owner to enable it if you'd like early access."
+    },
+    "priority": {
+      "low": "Low",
+      "normal": "Normal",
+      "high": "High",
+      "urgent": "Urgent"
+    },
+    "fieldType": {
+      "short_text": "Short text",
+      "long_text": "Long text",
+      "number": "Number",
+      "currency": "Currency",
+      "date": "Date",
+      "datetime": "Date & time",
+      "checkbox": "Checkbox",
+      "single_select": "Single select",
+      "multi_select": "Multi select",
+      "phone": "Phone",
+      "email": "Email",
+      "url": "URL",
+      "user": "User",
+      "contact": "Contact",
+      "related_card": "Related card"
+    },
+    "board": {
+      "dropCardHere": "Drop a card here",
+      "addCard": "Add card"
+    },
+    "stageSettings": {
+      "manageStages": "Manage Stages",
+      "stages": "Stages",
+      "newStageNamePlaceholder": "New stage name",
+      "add": "Add",
+      "saving": "Saving...",
+      "saveChanges": "Save Changes",
+      "cancel": "Cancel",
+      "moving": "Moving...",
+      "moveAndDelete": "Move and delete",
+      "moveTo": "Move cards to",
+      "dragToReorder": "Drag to reorder",
+      "changeColor": "Change color",
+      "pickColorAriaLabel": "Pick color {color}",
+      "setInitial": "Default for new cards",
+      "deleteBlockedTitle": "{count, plural, =1 {1 card is} other {# cards are}} in this stage",
+      "deleteBlockedDesc": "Choose a stage to move them to before deleting this one.",
+      "toastFailedSave": "Failed to save stages",
+      "toastSaved": "Stages saved",
+      "toastFailedAddStage": "Failed to add stage",
+      "toastCannotDeleteLastStage": "A board needs at least one stage",
+      "toastFailedDeleteStage": "Failed to delete stage",
+      "toastStageDeleted": "Stage deleted",
+      "toastFailedSetInitial": "Failed to set default stage"
+    },
+    "fieldDefsSettings": {
+      "manageFields": "Manage Custom Fields",
+      "noFieldsYet": "No custom fields yet",
+      "fieldName": "Field name",
+      "fieldNamePlaceholder": "e.g., Payment method",
+      "fieldType": "Field type",
+      "choices": "Choices",
+      "choicesPlaceholder": "Comma-separated, e.g. Cash, Financing",
+      "visibleOnStage": "Visible on stage",
+      "allStages": "All stages",
+      "required": "Required",
+      "addField": "Add field",
+      "done": "Done",
+      "toastFailedAdd": "Failed to add field",
+      "toastAdded": "Field added",
+      "toastFailedRemove": "Failed to remove field",
+      "toastRemoved": "Field removed",
+      "toastFailedReorder": "Failed to reorder fields"
+    },
+    "cardForm": {
+      "newTitle": "New Card",
+      "editTitle": "Edit Card",
+      "title": "Title",
+      "titlePlaceholder": "Card title",
+      "description": "Description",
+      "stage": "Stage",
+      "priority": "Priority",
+      "assignee": "Assignee",
+      "unassigned": "Unassigned",
+      "cancel": "Cancel",
+      "saving": "Saving...",
+      "saveChanges": "Save Changes",
+      "createCard": "Create Card",
+      "toastRequired": "Title and stage are required",
+      "toastFailedSave": "Failed to save card",
+      "toastUpdated": "Card updated",
+      "toastNotLinked": "Your profile is not linked to an account.",
+      "toastFailedCreate": "Failed to create card",
+      "toastCreated": "Card created"
+    },
+    "rootPage": {
+      "title": "Operations",
+      "newFolder": "New Folder",
+      "newBoard": "New Board",
+      "emptyTitle": "No folders or boards yet",
+      "emptyDesc": "Create a board to start organizing your work.",
+      "noFolderSection": "No folder",
+      "folderName": "Folder name",
+      "parentFolder": "Parent folder",
+      "noParentFolder": "No parent (top level)",
+      "boardName": "Board name",
+      "folder": "Folder",
+      "noFolder": "No folder",
+      "defaultStageName": "To do",
+      "cancel": "Cancel",
+      "creating": "Creating...",
+      "create": "Create",
+      "toastFailedCreateFolder": "Failed to create folder",
+      "toastFolderCreated": "Folder created",
+      "toastFailedCreateBoard": "Failed to create board",
+      "toastBoardCreated": "Board created"
+    },
+    "boardPage": {
+      "backToOperations": "Back to Operations",
+      "boardNotFound": "Board not found",
+      "manageStages": "Stages",
+      "manageFields": "Custom Fields",
+      "addCard": "Add {label}",
+      "noStagesYet": "This board has no stages yet",
+      "toastFailedMoveCard": "Failed to move card"
+    },
+    "cardPage": {
+      "backToOperations": "Back to board",
+      "cardNotFound": "Card not found",
+      "stage": "Stage",
+      "priority": "Priority",
+      "assignee": "Assignee",
+      "unassigned": "Unassigned",
+      "archive": "Archive",
+      "unarchive": "Unarchive",
+      "description": "Description",
+      "tags": "Tags",
+      "customFields": "Custom fields",
+      "missingRequiredFields": "{count, plural, =1 {1 required field is} other {# required fields are}} missing for this stage",
+      "linkedContacts": "Linked contacts",
+      "relatedCards": "Related cards",
+      "attachments": "Attachments",
+      "comments": "Comments",
+      "activity": "Activity",
+      "toastFailedSave": "Failed to save",
+      "toastFailedSaveField": "Failed to save field"
+    },
+    "cardDetail": {
+      "selectPlaceholder": "Select...",
+      "none": "None",
+      "tags": {
+        "addTag": "Add tag",
+        "newTagPlaceholder": "New tag name",
+        "toastFailed": "Failed to update tags",
+        "toastFailedCreate": "Failed to create tag"
+      },
+      "comments": {
+        "placeholder": "Write a comment...",
+        "internalOnly": "Internal only",
+        "internalBadge": "Internal",
+        "send": "Send",
+        "noComments": "No comments yet",
+        "unknownAuthor": "Unknown",
+        "toastFailed": "Failed to post comment"
+      },
+      "activity": {
+        "noActivity": "No activity yet",
+        "events": {
+          "card_created": "Card created",
+          "stage_changed": "Stage changed",
+          "assignee_changed": "Assignee changed",
+          "priority_changed": "Priority changed",
+          "field_changed": "A custom field was updated",
+          "comment_added": "Comment added",
+          "relation_added": "Relation added",
+          "relation_removed": "Relation removed",
+          "attachment_added": "Attachment added",
+          "attachment_removed": "Attachment removed",
+          "archived": "Card archived",
+          "unarchived": "Card unarchived"
+        }
+      },
+      "relations": {
+        "noRelations": "No related cards yet",
+        "unknownCard": "Unknown card",
+        "relationTypePlaceholder": "Relation",
+        "selectCard": "Select a card",
+        "add": "Add",
+        "toastFailed": "Failed to update relations"
+      },
+      "attachments": {
+        "noAttachments": "No attachments yet",
+        "addAttachment": "Add attachment",
+        "uploading": "Uploading...",
+        "toastFailed": "Failed to remove attachment",
+        "toastFailedUpload": "Failed to upload attachment",
+        "toastTooLarge": "File is too large (max 25 MB)"
+      },
+      "contacts": {
+        "noContacts": "No linked contacts yet",
+        "unknownContact": "Unknown contact",
+        "selectContact": "Select a contact",
+        "add": "Add",
+        "toastFailed": "Failed to update contacts"
+      }
     }
   },
   "Broadcasts": {
