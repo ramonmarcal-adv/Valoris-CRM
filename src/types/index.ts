@@ -929,6 +929,10 @@ export interface OperationBoard {
   position: number;
   archived_at?: string | null;
   created_by?: string | null;
+  /** The board's chosen date/datetime custom field, plotted on the Calendar view. */
+  calendar_field_def_id?: string | null;
+  /** Lets a board opt out of showing its Overview/Dashboard panel. */
+  dashboard_hidden: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -941,6 +945,8 @@ export interface OperationBoardStage {
   /** Integer, renumbered in full on reorder — not fractional (few stages per board). */
   position: number;
   is_initial: boolean;
+  /** Terminal stage (e.g. "Aprovado", "Descartado") — a board may have more than one. Drives the Dashboard's "cards concluídos" split. */
+  is_final: boolean;
   archived_at?: string | null;
   created_at: string;
   updated_at: string;
@@ -961,6 +967,8 @@ export interface OperationCard {
   assigned_to_user_id?: string | null;
   archived_at?: string | null;
   created_by?: string | null;
+  /** Trigger-maintained from first-level tasks (parent_task_id IS NULL); null when the card has no first-level tasks yet. */
+  progress_percent?: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -1051,6 +1059,8 @@ export interface OperationCardComment {
   user_id?: string | null;
   comment_text: string;
   is_internal: boolean;
+  /** Null = a general Card comment; set = scoped to that Task. */
+  task_id?: string | null;
   created_at: string;
 }
 
@@ -1064,6 +1074,8 @@ export interface OperationCardAttachment {
   file_name: string;
   mime_type?: string | null;
   size_bytes?: number | null;
+  /** Null = a general Card attachment; set = scoped to that Task. */
+  task_id?: string | null;
   created_at: string;
 }
 
@@ -1079,7 +1091,13 @@ export type OperationCardActivityEventType =
   | 'attachment_added'
   | 'attachment_removed'
   | 'archived'
-  | 'unarchived';
+  | 'unarchived'
+  | 'task_created'
+  | 'task_completed'
+  | 'task_reopened'
+  | 'task_assignee_changed'
+  | 'task_deleted'
+  | 'checklist_item_toggled';
 
 export interface OperationCardActivity {
   id: string;
@@ -1089,4 +1107,132 @@ export interface OperationCardActivity {
   event_type: OperationCardActivityEventType;
   payload: Record<string, unknown>;
   created_at: string;
+}
+
+// ============================================================
+// Operações — Release B (migrations 066-074)
+//
+// Tasks (optionally 1 level of subtasks), Checklists (Card- or
+// Task-scoped), Task/Checklist Templates (global or board-specific,
+// clone-on-apply), and configurable Dashboard indicators.
+// ============================================================
+
+export type OperationTaskStatus = 'todo' | 'in_progress' | 'done' | 'cancelled';
+
+export interface OperationTask {
+  id: string;
+  card_id: string;
+  account_id: string;
+  /** Max 1 level deep — enforced by a DB trigger. */
+  parent_task_id: string | null;
+  title: string;
+  description?: string | null;
+  status: OperationTaskStatus;
+  priority: OperationCardPriority;
+  start_date?: string | null;
+  due_at?: string | null;
+  /** Free-text "group/section" label — no dedicated grouping table exists. */
+  section?: string | null;
+  assigned_to_user_id?: string | null;
+  auto_complete_when_subtasks_done: boolean;
+  completed_at?: string | null;
+  completed_by_user_id?: string | null;
+  /** Traceability only — never a live binding back to the template. */
+  source_template_id?: string | null;
+  /** Fractional, partitioned per (card_id, parent_task_id). */
+  position: number;
+  created_by?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OperationChecklist {
+  id: string;
+  /** XOR with task_id — exactly one of the two is set. */
+  card_id: string | null;
+  task_id: string | null;
+  title: string;
+  position: number;
+  created_by?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OperationChecklistItem {
+  id: string;
+  checklist_id: string;
+  item_text: string;
+  is_done: boolean;
+  note?: string | null;
+  /** Fractional, partitioned per checklist_id. */
+  position: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export type OperationTaskTemplateAssigneeMode = 'none' | 'specific_user' | 'card_assignee';
+
+export interface OperationTaskTemplate {
+  id: string;
+  account_id: string;
+  /** Null = global to the account; set = specific to that board. */
+  board_id: string | null;
+  name: string;
+  description?: string | null;
+  default_priority: OperationCardPriority;
+  default_assignee_mode: OperationTaskTemplateAssigneeMode;
+  default_assignee_user_id?: string | null;
+  default_due_offset_days?: number | null;
+  default_section?: string | null;
+  position: number;
+  archived_at?: string | null;
+  created_by?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OperationTaskTemplateSubtask {
+  id: string;
+  template_id: string;
+  title: string;
+  description?: string | null;
+  default_priority: OperationCardPriority;
+  default_due_offset_days?: number | null;
+  position: number;
+}
+
+export interface OperationTaskTemplateChecklistItem {
+  id: string;
+  template_id: string;
+  item_text: string;
+  position: number;
+}
+
+export type OperationBoardIndicatorAggType = 'count' | 'sum' | 'avg' | 'min' | 'max' | 'percentage';
+
+export interface OperationBoardIndicator {
+  id: string;
+  board_id: string;
+  name: string;
+  agg_type: OperationBoardIndicatorAggType;
+  /** Required for sum/avg/min/max (must be a number/currency field); unused for count/percentage. */
+  field_def_id?: string | null;
+  /** Required for percentage (% of active cards in this stage); optional scope-narrower for count/sum/avg/min/max. */
+  filter_stage_id?: string | null;
+  position: number;
+  archived_at?: string | null;
+  created_by?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Return shape of the get_board_overview_stats RPC. */
+export interface OperationBoardOverviewStats {
+  active_cards: number;
+  completed_cards: number;
+  avg_progress: number | null;
+  tasks_pending: number;
+  tasks_overdue: number;
+  tasks_due_today: number;
+  tasks_due_this_week: number;
 }

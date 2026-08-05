@@ -34,6 +34,11 @@ export default function OperationBoardPage() {
   const router = useRouter();
   const supabase = createClient();
   const canManage = useCan("send-messages");
+  // operation_card_field_defs (and, from Release B onward, task
+  // templates / board indicators) are admin+ in the RLS — gating
+  // their entry points on agent+ let an agent see the button but
+  // fail with a confusing RLS error on save. Fixed here.
+  const canManageStructure = useCan("edit-settings");
 
   const [board, setBoard] = useState<OperationBoard | null>(null);
   const [stages, setStages] = useState<OperationBoardStage[]>([]);
@@ -160,7 +165,7 @@ export default function OperationBoardPage() {
           </GatedButton>
           <GatedButton
             variant="outline"
-            canAct={canManage}
+            canAct={canManageStructure}
             gateReason="createBoards"
             onClick={() => setFieldDefsOpen(true)}
             className="border-border bg-card text-foreground hover:bg-muted"
