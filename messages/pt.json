@@ -1217,7 +1217,8 @@
       "viewOverview": "Visão Geral",
       "manageTemplates": "Modelos",
       "manageChecklistTemplates": "Modelos de Checklist",
-      "manageAutomations": "Automações"
+      "manageAutomations": "Automações",
+      "manageForms": "Formulários"
     },
     "listView": {
       "title": "Título",
@@ -1604,7 +1605,104 @@
           "failed": "Falhou"
         }
       }
+    },
+    "forms": {
+      "list": {
+        "newForm": "Novo Formulário",
+        "noForms": "Nenhum formulário ainda",
+        "published": "Publicado",
+        "draft": "Rascunho",
+        "namePlaceholder": "Nome do formulário",
+        "cancel": "Cancelar",
+        "create": "Criar",
+        "creating": "Criando...",
+        "toastFailedToggle": "Falha ao atualizar formulário",
+        "toastFailedDelete": "Falha ao excluir formulário",
+        "toastDeleted": "Formulário excluído",
+        "toastFailedCreate": "Falha ao criar formulário"
+      },
+      "builder": {
+        "descriptionPlaceholder": "Para que serve este formulário?",
+        "published": "Publicado",
+        "fillNow": "Preencher agora",
+        "cardSettings": "Card",
+        "targetStage": "Fase de destino",
+        "autoInitialStage": "Usar a fase padrão do quadro",
+        "titleTemplate": "Título do card",
+        "descriptionTemplate": "Descrição do card",
+        "questions": "Perguntas",
+        "noQuestions": "Nenhuma pergunta ainda",
+        "addQuestion": "Adicionar pergunta",
+        "questionLabelPlaceholder": "Texto da pergunta",
+        "selectCardField": "Selecionar um campo do card",
+        "noCompatibleCardFields": "Nenhum campo compatível neste quadro",
+        "choicesPlaceholder": "Opções separadas por vírgula",
+        "helpTextPlaceholder": "Texto de ajuda (opcional)",
+        "required": "Obrigatória",
+        "contactSettings": "Contato",
+        "updateExistingContact": "Atualizar dados de um contato já existente ao encontrar",
+        "dedupeUseEmail": "Também identificar contato existente pelo e-mail",
+        "publicPage": "Página pública",
+        "thankYouMessage": "Mensagem de agradecimento",
+        "consentRequired": "Exigir consentimento para enviar",
+        "consentTextPlaceholder": "Texto de consentimento exibido ao visitante",
+        "submissions": "Submissões",
+        "save": "Salvar",
+        "saving": "Salvando...",
+        "toastFailedSave": "Falha ao salvar formulário",
+        "toastSaved": "Formulário salvo",
+        "toastValidationFailed": "Não é possível publicar: {message}",
+        "toastLinkCopied": "Link copiado",
+        "toastSaveBeforeFilling": "Salve o formulário antes de preenchê-lo — algumas perguntas ainda não foram salvas"
+      },
+      "fieldType": {
+        "short_text": "Texto curto",
+        "long_text": "Texto longo",
+        "number": "Número",
+        "currency": "Moeda",
+        "phone": "Telefone",
+        "email": "E-mail",
+        "date": "Data",
+        "datetime": "Data e hora",
+        "single_select": "Seleção única",
+        "multi_select": "Seleção múltipla",
+        "checkbox": "Caixa de seleção",
+        "url": "URL"
+      },
+      "mapsTo": {
+        "answer_only": "Apenas registrar a resposta",
+        "card_field": "Um campo do card",
+        "contact_phone": "Telefone do contato",
+        "contact_name": "Nome do contato",
+        "contact_email": "E-mail do contato",
+        "contact_company": "Empresa do contato"
+      },
+      "fillDialog": {
+        "title": "Preencher este formulário",
+        "noQuestions": "Este formulário ainda não tem perguntas",
+        "cancel": "Cancelar",
+        "submit": "Enviar",
+        "submitting": "Enviando...",
+        "toastMissingRequired": "Responda todas as perguntas obrigatórias",
+        "toastFailed": "Falha ao enviar",
+        "toastSubmitted": "Enviado"
+      },
+      "submissions": {
+        "noSubmissions": "Nenhuma submissão ainda",
+        "contactCreated": "Contato criado",
+        "contactMatched": "Contato existente",
+        "viewCard": "Ver card"
+      }
     }
+  },
+  "PublicForm": {
+    "notFound": "Este formulário não está disponível.",
+    "missingRequired": "Responda todas as perguntas obrigatórias.",
+    "consentRequiredAlert": "É necessário concordar antes de enviar.",
+    "submitError": "Algo deu errado — tente novamente.",
+    "submitting": "Enviando...",
+    "submit": "Enviar",
+    "honeypotLabel": "Deixe este campo em branco"
   },
   "Broadcasts": {
     "page": {

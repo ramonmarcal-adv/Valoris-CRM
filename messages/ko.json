@@ -1217,7 +1217,8 @@
       "viewOverview": "개요",
       "manageTemplates": "템플릿",
       "manageChecklistTemplates": "체크리스트 템플릿",
-      "manageAutomations": "자동화"
+      "manageAutomations": "자동화",
+      "manageForms": "양식"
     },
     "listView": {
       "title": "제목",
@@ -1604,7 +1605,104 @@
           "failed": "실패"
         }
       }
+    },
+    "forms": {
+      "list": {
+        "newForm": "새 양식",
+        "noForms": "아직 양식이 없습니다",
+        "published": "게시됨",
+        "draft": "초안",
+        "namePlaceholder": "양식 이름",
+        "cancel": "취소",
+        "create": "생성",
+        "creating": "생성 중...",
+        "toastFailedToggle": "양식 업데이트에 실패했습니다",
+        "toastFailedDelete": "양식 삭제에 실패했습니다",
+        "toastDeleted": "양식이 삭제되었습니다",
+        "toastFailedCreate": "양식 생성에 실패했습니다"
+      },
+      "builder": {
+        "descriptionPlaceholder": "이 양식은 무엇을 위한 것인가요?",
+        "published": "게시됨",
+        "fillNow": "지금 작성",
+        "cardSettings": "카드",
+        "targetStage": "대상 단계",
+        "autoInitialStage": "보드의 기본 단계 사용",
+        "titleTemplate": "카드 제목",
+        "descriptionTemplate": "카드 설명",
+        "questions": "질문",
+        "noQuestions": "아직 질문이 없습니다",
+        "addQuestion": "질문 추가",
+        "questionLabelPlaceholder": "질문 내용",
+        "selectCardField": "카드 필드 선택",
+        "noCompatibleCardFields": "이 보드에 호환되는 필드가 없습니다",
+        "choicesPlaceholder": "쉼표로 구분된 선택지",
+        "helpTextPlaceholder": "도움말 (선택 사항)",
+        "required": "필수",
+        "contactSettings": "연락처",
+        "updateExistingContact": "기존 연락처를 찾으면 정보 업데이트",
+        "dedupeUseEmail": "이메일로도 기존 연락처 확인",
+        "publicPage": "공개 페이지",
+        "thankYouMessage": "감사 메시지",
+        "consentRequired": "제출 시 동의 필요",
+        "consentTextPlaceholder": "방문자에게 표시할 동의 문구",
+        "submissions": "제출 내역",
+        "save": "저장",
+        "saving": "저장 중...",
+        "toastFailedSave": "양식 저장에 실패했습니다",
+        "toastSaved": "양식이 저장되었습니다",
+        "toastValidationFailed": "게시할 수 없습니다: {message}",
+        "toastLinkCopied": "링크가 복사되었습니다",
+        "toastSaveBeforeFilling": "양식을 저장한 후 작성하세요 — 아직 저장되지 않은 질문이 있습니다"
+      },
+      "fieldType": {
+        "short_text": "짧은 텍스트",
+        "long_text": "긴 텍스트",
+        "number": "숫자",
+        "currency": "통화",
+        "phone": "전화번호",
+        "email": "이메일",
+        "date": "날짜",
+        "datetime": "날짜 및 시간",
+        "single_select": "단일 선택",
+        "multi_select": "다중 선택",
+        "checkbox": "체크박스",
+        "url": "URL"
+      },
+      "mapsTo": {
+        "answer_only": "답변만 기록",
+        "card_field": "카드 필드",
+        "contact_phone": "연락처 전화번호",
+        "contact_name": "연락처 이름",
+        "contact_email": "연락처 이메일",
+        "contact_company": "연락처 회사"
+      },
+      "fillDialog": {
+        "title": "이 양식 작성",
+        "noQuestions": "이 양식에는 아직 질문이 없습니다",
+        "cancel": "취소",
+        "submit": "제출",
+        "submitting": "제출 중...",
+        "toastMissingRequired": "모든 필수 질문에 답해주세요",
+        "toastFailed": "제출에 실패했습니다",
+        "toastSubmitted": "제출되었습니다"
+      },
+      "submissions": {
+        "noSubmissions": "아직 제출 내역이 없습니다",
+        "contactCreated": "연락처 생성됨",
+        "contactMatched": "기존 연락처",
+        "viewCard": "카드 보기"
+      }
     }
+  },
+  "PublicForm": {
+    "notFound": "이 양식은 사용할 수 없습니다.",
+    "missingRequired": "모든 필수 질문에 답해주세요.",
+    "consentRequiredAlert": "제출하기 전에 동의해주세요.",
+    "submitError": "문제가 발생했습니다 — 다시 시도해주세요.",
+    "submitting": "제출 중...",
+    "submit": "제출",
+    "honeypotLabel": "이 필드는 비워두세요"
   },
   "Broadcasts": {
     "page": {

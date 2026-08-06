@@ -177,6 +177,16 @@ export const RATE_LIMITS = {
    *  conversation, then cached) while capping a burst of spoofed/
    *  malicious links. */
   aiLinkFetchAccount: { limit: 20, windowMs: 60_000 },
+  /** Public form page load (per-IP) — GET /api/forms/[slug]. Generous:
+   *  this is a read, and a shared link can get several near-simultaneous
+   *  hits from one visitor's browser/prefetch. */
+  formView: { limit: 60, windowMs: 60_000 },
+  /** Public form submission (per-IP) — POST /api/forms/[slug]/submit.
+   *  Same tightness rationale as invitationRedeem: a successful
+   *  submission mutates data (Contact/Card/submission row), so the
+   *  abuse surface is "spam submissions," not retries under flaky
+   *  connectivity. */
+  formSubmit: { limit: 10, windowMs: 60_000 },
 } as const;
 
 /** Test-only helper. Clears the in-memory state so unit tests don't

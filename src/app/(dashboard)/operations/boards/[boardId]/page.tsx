@@ -23,7 +23,7 @@ import type {
   OperationCardFieldDef,
   Profile,
 } from "@/types";
-import { ArrowLeft, ListChecks, ListFilter, LayoutTemplate, Plus, Settings, SlidersHorizontal, Zap } from "lucide-react";
+import { ArrowLeft, FileText, ListChecks, ListFilter, LayoutTemplate, Plus, Settings, SlidersHorizontal, Zap } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
@@ -208,6 +208,16 @@ export default function OperationBoardPage() {
           >
             <Zap className="mr-1 h-4 w-4" />
             {t("manageAutomations")}
+          </GatedButton>
+          <GatedButton
+            variant="outline"
+            canAct={canManageStructure}
+            gateReason="createBoards"
+            onClick={() => router.push(`/operations/boards/${board.id}/forms`)}
+            className="border-border bg-card text-foreground hover:bg-muted"
+          >
+            <FileText className="mr-1 h-4 w-4" />
+            {t("manageForms")}
           </GatedButton>
           <GatedButton
             canAct={canManage}

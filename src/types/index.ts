@@ -971,6 +971,8 @@ export interface OperationCard {
   progress_percent?: number | null;
   /** Trigger-maintained — set to NOW() whenever stage_id changes. Powers the 'card_stuck_in_stage_days' automation trigger. */
   stage_entered_at: string;
+  /** Traceability only, never a live binding — set when this card was created by a form submission (Release D). */
+  source_form_submission_id?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -1424,4 +1426,131 @@ export interface OperationChecklistTemplateItem {
   template_id: string;
   item_text: string;
   position: number;
+}
+
+// ============================================================
+// Release D — Native Forms (PRD 17). A form belongs to a Board; on
+// submission it creates a Card (+ optionally finds/creates a
+// Contact). No form_type — every form supports both an
+// always-available authenticated dashboard fill and a public URL
+// gated purely by is_published.
+// ============================================================
+
+/** 12-value subset of OperationCardFieldType — excludes user/contact/related_card. */
+export type OperationFormQuestionFieldType =
+  | 'short_text'
+  | 'long_text'
+  | 'number'
+  | 'currency'
+  | 'phone'
+  | 'email'
+  | 'date'
+  | 'datetime'
+  | 'single_select'
+  | 'multi_select'
+  | 'checkbox'
+  | 'url';
+
+export type OperationFormQuestionMapsTo =
+  | 'contact_phone'
+  | 'contact_name'
+  | 'contact_email'
+  | 'contact_company'
+  | 'card_field'
+  | 'answer_only';
+
+export interface OperationForm {
+  id: string;
+  account_id: string;
+  board_id: string;
+  /** Null = resolve the board's is_initial stage at submit time. */
+  target_stage_id: string | null;
+  name: string;
+  description?: string | null;
+  slug: string;
+  is_published: boolean;
+  /** {{field_key}} interpolation, no namespace prefix. */
+  title_template: string;
+  description_template?: string | null;
+  thank_you_message: string;
+  consent_required: boolean;
+  consent_text?: string | null;
+  update_existing_contact: boolean;
+  dedupe_use_email: boolean;
+  archived_at?: string | null;
+  created_by?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OperationFormQuestion {
+  id: string;
+  form_id: string;
+  field_key: string;
+  label: string;
+  help_text?: string | null;
+  field_type: OperationFormQuestionFieldType;
+  /** { choices: string[] } for single_select/multi_select, mirrors OperationCardFieldDef. */
+  field_options: Record<string, unknown>;
+  is_required: boolean;
+  position: number;
+  maps_to: OperationFormQuestionMapsTo;
+  card_field_def_id?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** One answer inside a submission's self-describing `answers` JSONB — frozen at submit time, survives later question edits. */
+export interface OperationFormSubmissionAnswer {
+  field_key: string;
+  label: string;
+  field_type: OperationFormQuestionFieldType;
+  value: string | string[] | number | boolean | null;
+}
+
+export interface OperationFormSubmission {
+  id: string;
+  form_id: string;
+  account_id: string;
+  /** Keyed by question_id. */
+  answers: Record<string, OperationFormSubmissionAnswer>;
+  contact_id?: string | null;
+  card_id?: string | null;
+  contact_was_created: boolean;
+  utm_source?: string | null;
+  utm_medium?: string | null;
+  utm_campaign?: string | null;
+  utm_content?: string | null;
+  referral_code?: string | null;
+  hidden_fields: Record<string, string>;
+  consent_given: boolean;
+  submitted_by_user_id?: string | null;
+  ip_address?: string | null;
+  user_agent?: string | null;
+  created_at: string;
+}
+
+/** Hand-shaped payload returned by the get_public_form RPC — never raw table rows. */
+export interface PublicFormPayload {
+  ok: boolean;
+  reason?: 'not_found';
+  form?: {
+    id: string;
+    name: string;
+    description: string | null;
+    thank_you_message: string;
+    consent_required: boolean;
+    consent_text: string | null;
+    branding: { name: string | null; logo_url: string | null };
+  };
+  questions?: Array<{
+    id: string;
+    field_key: string;
+    label: string;
+    help_text: string | null;
+    field_type: OperationFormQuestionFieldType;
+    field_options: Record<string, unknown>;
+    is_required: boolean;
+    position: number;
+  }>;
 }

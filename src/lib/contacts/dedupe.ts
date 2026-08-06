@@ -68,6 +68,35 @@ export async function findExistingContact(
 }
 
 /**
+ * Find an existing contact in `accountId` by exact email match
+ * (case-insensitive) — the fallback dedupe key for Release D forms
+ * (PRD 17.5: "dedup prioritiza telefone, opcionalmente e-mail"), used
+ * only when a form has `dedupe_use_email` on AND no phone match was
+ * found. `contacts.email` has no unique constraint or functional index
+ * today (low expected volume for V1) — a straight `.ilike()` is
+ * sufficient; add an index if this ever shows up in a slow-query log.
+ */
+export async function findExistingContactByEmail(
+  db: SupabaseClient,
+  accountId: string,
+  email: string,
+): Promise<ExistingContact | null> {
+  const trimmed = email.trim();
+  if (!trimmed) return null;
+
+  const { data, error } = await db
+    .from("contacts")
+    .select("*")
+    .eq("account_id", accountId)
+    .ilike("email", trimmed)
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return data as ExistingContact;
+}
+
+/**
  * True when an existing contact is an *exact* normalized match for
  * `phone` (vs only a fuzzy trunk-variant match). The form hard-blocks
  * exact matches but only warns on fuzzy ones.

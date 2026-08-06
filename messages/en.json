@@ -1217,7 +1217,8 @@
       "viewOverview": "Overview",
       "manageTemplates": "Templates",
       "manageChecklistTemplates": "Checklist Templates",
-      "manageAutomations": "Automations"
+      "manageAutomations": "Automations",
+      "manageForms": "Forms"
     },
     "listView": {
       "title": "Title",
@@ -1604,7 +1605,104 @@
           "failed": "Failed"
         }
       }
+    },
+    "forms": {
+      "list": {
+        "newForm": "New Form",
+        "noForms": "No forms yet",
+        "published": "Published",
+        "draft": "Draft",
+        "namePlaceholder": "Form name",
+        "cancel": "Cancel",
+        "create": "Create",
+        "creating": "Creating...",
+        "toastFailedToggle": "Failed to update form",
+        "toastFailedDelete": "Failed to delete form",
+        "toastDeleted": "Form deleted",
+        "toastFailedCreate": "Failed to create form"
+      },
+      "builder": {
+        "descriptionPlaceholder": "What is this form for?",
+        "published": "Published",
+        "fillNow": "Fill now",
+        "cardSettings": "Card",
+        "targetStage": "Target stage",
+        "autoInitialStage": "Use the board's default stage",
+        "titleTemplate": "Card title",
+        "descriptionTemplate": "Card description",
+        "questions": "Questions",
+        "noQuestions": "No questions yet",
+        "addQuestion": "Add question",
+        "questionLabelPlaceholder": "Question label",
+        "selectCardField": "Select a card field",
+        "noCompatibleCardFields": "No compatible field on this board",
+        "choicesPlaceholder": "Comma-separated choices",
+        "helpTextPlaceholder": "Help text (optional)",
+        "required": "Required",
+        "contactSettings": "Contact",
+        "updateExistingContact": "Update an existing contact's info when found",
+        "dedupeUseEmail": "Also match an existing contact by email",
+        "publicPage": "Public page",
+        "thankYouMessage": "Thank-you message",
+        "consentRequired": "Require consent to submit",
+        "consentTextPlaceholder": "Consent text shown to the visitor",
+        "submissions": "Submissions",
+        "save": "Save",
+        "saving": "Saving...",
+        "toastFailedSave": "Failed to save form",
+        "toastSaved": "Form saved",
+        "toastValidationFailed": "Cannot publish: {message}",
+        "toastLinkCopied": "Link copied",
+        "toastSaveBeforeFilling": "Save the form before filling it — some questions haven't been saved yet"
+      },
+      "fieldType": {
+        "short_text": "Short text",
+        "long_text": "Long text",
+        "number": "Number",
+        "currency": "Currency",
+        "phone": "Phone",
+        "email": "Email",
+        "date": "Date",
+        "datetime": "Date & time",
+        "single_select": "Single select",
+        "multi_select": "Multi select",
+        "checkbox": "Checkbox",
+        "url": "URL"
+      },
+      "mapsTo": {
+        "answer_only": "Just record the answer",
+        "card_field": "A card field",
+        "contact_phone": "Contact's phone",
+        "contact_name": "Contact's name",
+        "contact_email": "Contact's email",
+        "contact_company": "Contact's company"
+      },
+      "fillDialog": {
+        "title": "Fill this form",
+        "noQuestions": "This form has no questions yet",
+        "cancel": "Cancel",
+        "submit": "Submit",
+        "submitting": "Submitting...",
+        "toastMissingRequired": "Please answer all required questions",
+        "toastFailed": "Failed to submit",
+        "toastSubmitted": "Submitted"
+      },
+      "submissions": {
+        "noSubmissions": "No submissions yet",
+        "contactCreated": "Contact created",
+        "contactMatched": "Existing contact",
+        "viewCard": "View card"
+      }
     }
+  },
+  "PublicForm": {
+    "notFound": "This form isn't available.",
+    "missingRequired": "Please answer all required questions.",
+    "consentRequiredAlert": "Please agree before submitting.",
+    "submitError": "Something went wrong — please try again.",
+    "submitting": "Submitting...",
+    "submit": "Submit",
+    "honeypotLabel": "Leave this field blank"
   },
   "Broadcasts": {
     "page": {
