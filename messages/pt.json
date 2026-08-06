@@ -1126,7 +1126,20 @@
       "toastCannotDeleteLastStage": "Um quadro precisa de pelo menos uma fase",
       "toastFailedDeleteStage": "Falha ao excluir fase",
       "toastStageDeleted": "Fase excluída",
-      "toastFailedSetInitial": "Falha ao definir fase padrão"
+      "toastFailedSetInitial": "Falha ao definir fase padrão",
+      "shortcuts": {
+        "onEnter": "Ao entrar nesta fase",
+        "toastFailed": "Falha ao salvar atalho",
+        "selectTemplate": "Selecionar um modelo",
+        "selectUser": "Selecionar um usuário",
+        "selectPriority": "Selecionar uma prioridade",
+        "action": {
+          "apply_checklist_template": "Aplicar checklist",
+          "apply_task_template": "Aplicar modelo de tarefa",
+          "assign_card": "Atribuir responsável",
+          "change_priority": "Mudar prioridade"
+        }
+      }
     },
     "fieldDefsSettings": {
       "manageFields": "Gerenciar Campos Personalizados",

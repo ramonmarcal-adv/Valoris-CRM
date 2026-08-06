@@ -254,13 +254,16 @@ export default function OperationBoardPage() {
         />
       )}
 
-      <BoardStageSettings
-        open={stageSettingsOpen}
-        onOpenChange={setStageSettingsOpen}
-        boardId={board.id}
-        stages={stages}
-        onStagesChanged={load}
-      />
+      {accountId && (
+        <BoardStageSettings
+          open={stageSettingsOpen}
+          onOpenChange={setStageSettingsOpen}
+          accountId={accountId}
+          boardId={board.id}
+          stages={stages}
+          onStagesChanged={load}
+        />
+      )}
       <BoardFieldDefsSettings
         open={fieldDefsOpen}
         onOpenChange={setFieldDefsOpen}

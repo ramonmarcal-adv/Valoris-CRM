@@ -1126,7 +1126,20 @@
       "toastCannotDeleteLastStage": "보드에는 최소 하나의 단계가 필요합니다",
       "toastFailedDeleteStage": "단계 삭제에 실패했습니다",
       "toastStageDeleted": "단계가 삭제되었습니다",
-      "toastFailedSetInitial": "기본 단계 설정에 실패했습니다"
+      "toastFailedSetInitial": "기본 단계 설정에 실패했습니다",
+      "shortcuts": {
+        "onEnter": "이 단계 진입 시",
+        "toastFailed": "단축 설정 저장에 실패했습니다",
+        "selectTemplate": "템플릿 선택",
+        "selectUser": "사용자 선택",
+        "selectPriority": "우선순위 선택",
+        "action": {
+          "apply_checklist_template": "체크리스트 적용",
+          "apply_task_template": "작업 템플릿 적용",
+          "assign_card": "담당자 지정",
+          "change_priority": "우선순위 변경"
+        }
+      }
     },
     "fieldDefsSettings": {
       "manageFields": "사용자 지정 필드 관리",

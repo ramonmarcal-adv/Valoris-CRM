@@ -1126,7 +1126,20 @@
       "toastCannotDeleteLastStage": "A board needs at least one stage",
       "toastFailedDeleteStage": "Failed to delete stage",
       "toastStageDeleted": "Stage deleted",
-      "toastFailedSetInitial": "Failed to set default stage"
+      "toastFailedSetInitial": "Failed to set default stage",
+      "shortcuts": {
+        "onEnter": "On entering this stage",
+        "toastFailed": "Failed to save shortcut",
+        "selectTemplate": "Select a template",
+        "selectUser": "Select a user",
+        "selectPriority": "Select a priority",
+        "action": {
+          "apply_checklist_template": "Apply checklist",
+          "apply_task_template": "Apply task template",
+          "assign_card": "Assign responsible",
+          "change_priority": "Change priority"
+        }
+      }
     },
     "fieldDefsSettings": {
       "manageFields": "Manage Custom Fields",

@@ -19,6 +19,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { createClient } from "@/lib/supabase/client";
 import type { OperationBoardStage } from "@/types";
 import { deleteStageWithReallocation } from "@/lib/operations/stage-deletion";
+import { StageShortcutsPanel } from "./stage-shortcuts-panel";
 import { cn } from "@/lib/utils";
 import {
   Dialog,
@@ -37,7 +38,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Trash2, Plus, GripVertical } from "lucide-react";
+import { ChevronDown, ChevronRight, Trash2, Plus, GripVertical } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 
@@ -57,12 +58,13 @@ const STAGE_COLORS = [
 interface BoardStageSettingsProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  accountId: string;
   boardId: string;
   stages: OperationBoardStage[];
   onStagesChanged: () => void;
 }
 
-export function BoardStageSettings({ open, onOpenChange, boardId, stages, onStagesChanged }: BoardStageSettingsProps) {
+export function BoardStageSettings({ open, onOpenChange, accountId, boardId, stages, onStagesChanged }: BoardStageSettingsProps) {
   const t = useTranslations("Operations.stageSettings");
   const supabase = createClient();
 
@@ -73,6 +75,7 @@ export function BoardStageSettings({ open, onOpenChange, boardId, stages, onStag
   const [stagePendingDelete, setStagePendingDelete] = useState<{ id: string; count: number } | null>(null);
   const [moveTargetId, setMoveTargetId] = useState("");
   const [moving, setMoving] = useState(false);
+  const [expandedStageId, setExpandedStageId] = useState<string | null>(null);
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
@@ -265,6 +268,10 @@ export function BoardStageSettings({ open, onOpenChange, boardId, stages, onStag
                           onSetInitial={() => handleSetInitial(stage.id)}
                           colors={STAGE_COLORS}
                           t={t}
+                          accountId={accountId}
+                          boardId={boardId}
+                          expanded={expandedStageId === stage.id}
+                          onToggleExpanded={() => setExpandedStageId((prev) => (prev === stage.id ? null : stage.id))}
                         />
                       ))}
                     </div>
@@ -341,6 +348,10 @@ function SortableStageRow({
   onSetInitial,
   colors,
   t,
+  accountId,
+  boardId,
+  expanded,
+  onToggleExpanded,
 }: {
   stage: OperationBoardStage;
   onNameChange: (v: string) => void;
@@ -350,6 +361,10 @@ function SortableStageRow({
   colors: string[];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   t: any;
+  accountId: string;
+  boardId: string;
+  expanded: boolean;
+  onToggleExpanded: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: stage.id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
@@ -372,6 +387,14 @@ function SortableStageRow({
           onChange={(e) => onNameChange(e.target.value)}
           className="h-7 flex-1 border-transparent bg-transparent text-sm text-foreground focus:border-border"
         />
+        <button
+          type="button"
+          onClick={onToggleExpanded}
+          className="text-muted-foreground hover:text-foreground"
+          aria-label={t("shortcuts.onEnter")}
+        >
+          {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+        </button>
         <Button variant="ghost" size="icon-xs" onClick={onRemove} className="text-muted-foreground hover:text-red-400">
           <Trash2 className="h-3 w-3" />
         </Button>
@@ -388,6 +411,11 @@ function SortableStageRow({
           {t("setInitial")}
         </button>
       </div>
+      {expanded && (
+        <div className="mt-2 border-t border-border pt-2 pl-6">
+          <StageShortcutsPanel accountId={accountId} boardId={boardId} stageId={stage.id} stageName={stage.name} />
+        </div>
+      )}
     </div>
   );
 }
